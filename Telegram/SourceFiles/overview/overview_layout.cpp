@@ -582,6 +582,215 @@ void Video::updateStatusText() {
 	}
 }
 
+
+
+
+
+
+
+
+GIF::GIF(
+	not_null<HistoryItem*> parent,
+	not_null<DocumentData*> video)
+	: RadialProgressItem(parent)
+	, _data(video)
+	, _duration(formatDurationText(_data->getDuration())) {
+	setDocumentLinks(_data);
+	_data->loadThumbnail(parent->fullId());
+	
+	// Try to load the GIF here.
+	//_data->automaticLoad(parent->fullId(), parent);
+
+	if (_data->hasThumbnail() && !_data->thumbnail()->loaded()) {
+		if (const auto good = _data->goodThumbnail()) {
+			good->load({});
+		}
+	}
+}
+
+void GIF::initDimensions() {
+	_maxw = 2 * st::overviewPhotoMinSize;
+	_minh = _maxw;
+}
+
+int32 GIF::resizeGetHeight(int32 width) {
+	_width = qMin(width, _maxw);
+	_height = _width;
+	return _height;
+}
+
+void GIF::paint(Painter& p, const QRect& clip, TextSelection selection, const PaintContext* context) {
+	const auto selected = (selection == FullSelection);
+	const auto blurred = _data->thumbnailInline();
+	const auto goodLoaded = _data->goodThumbnail()
+		&& _data->goodThumbnail()->loaded();
+	const auto thumbLoaded = _data->hasThumbnail()
+		&& _data->thumbnail()->loaded();
+
+	bool loaded = _data->loaded(), displayLoading = _data->displayLoading();
+	if (displayLoading) {
+		ensureRadial();
+		if (!_radial->animating()) {
+			_radial->start(_data->progress());
+		}
+	}
+	updateStatusText();
+	const auto radial = isRadialAnimation();
+	const auto radialOpacity = radial ? _radial->opacity() : 0.;
+
+	if ((blurred || thumbLoaded || goodLoaded)
+		&& ((_pix.width() != _width * cIntRetinaFactor())
+			|| (_pixBlurred && (thumbLoaded || goodLoaded)))) {
+		auto size = _width * cIntRetinaFactor();
+		auto img = goodLoaded
+			? _data->goodThumbnail()->original()
+			: thumbLoaded
+			? _data->thumbnail()->original()
+			: Images::prepareBlur(blurred->original());
+		if (img.width() == img.height()) {
+			if (img.width() != size) {
+				img = img.scaled(size, size, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+			}
+		}
+		else if (img.width() > img.height()) {
+			img = img.copy((img.width() - img.height()) / 2, 0, img.height(), img.height()).scaled(size, size, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+		}
+		else {
+			img = img.copy(0, (img.height() - img.width()) / 2, img.width(), img.width()).scaled(size, size, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+		}
+		img.setDevicePixelRatio(cRetinaFactor());
+
+		_pix = App::pixmapFromImageInPlace(std::move(img));
+		_pixBlurred = !(thumbLoaded || goodLoaded);
+	}
+
+	if (_pix.isNull()) {
+		p.fillRect(0, 0, _width, _height, st::overviewPhotoBg);
+	}
+	else {
+		p.drawPixmap(0, 0, _pix);
+	}
+
+	if (selected) {
+		p.fillRect(QRect(0, 0, _width, _height), st::overviewPhotoSelectOverlay);
+	}
+
+	if (!selected && !context->selecting && radialOpacity < 1.) {
+		if (clip.intersects(QRect(0, _height - st::normalFont->height, _width, st::normalFont->height))) {
+			const auto download = !loaded && !_data->canBePlayed();
+			//const auto& icon = download
+			//	? (selected ? st::overviewVideoDownloadSelected : st::overviewVideoDownload)
+			//	: (selected ? st::overviewVideoPlaySelected : st::overviewVideoPlay);
+			const auto text = download ? _status.text() : ""; // don't show _duration since its a GIF;
+			const auto margin = st::overviewVideoStatusMargin;
+			const auto padding = st::overviewVideoStatusPadding;
+			const auto statusX = margin + padding.x(), statusY = _height - margin - padding.y() - st::normalFont->height;
+			const auto statusW = st::normalFont->width(text) + 2 * padding.x();
+			const auto statusH = st::normalFont->height + 2 * padding.y();
+			p.setOpacity(1. - radialOpacity);
+			App::roundRect(p, statusX - padding.x(), statusY - padding.y(), statusW, statusH, selected ? st::msgDateImgBgSelected : st::msgDateImgBg, selected ? OverviewVideoSelectedCorners : OverviewVideoCorners);
+			p.setFont(st::normalFont);
+			p.setPen(st::msgDateImgFg);
+			//icon.paint(p, statusX, statusY + (st::normalFont->height - icon.height()) / 2, _width);
+			p.drawTextLeft(statusX , statusY, _width, text, statusW - 2 * padding.x());
+		}
+	}
+
+	QRect inner((_width - st::overviewVideoRadialSize) / 2, (_height - st::overviewVideoRadialSize) / 2, st::overviewVideoRadialSize, st::overviewVideoRadialSize);
+	if (radial && clip.intersects(inner)) {
+		p.setOpacity(radialOpacity);
+		p.setPen(Qt::NoPen);
+		if (selected) {
+			p.setBrush(st::msgDateImgBgSelected);
+		}
+		else {
+			auto over = ClickHandler::showAsActive((_data->loading() || _data->uploading()) ? _cancell : (loaded || _data->canBePlayed()) ? _openl : _savel);
+			p.setBrush(anim::brush(st::msgDateImgBg, st::msgDateImgBgOver, _a_iconOver.value(over ? 1. : 0.)));
+		}
+
+		{
+			PainterHighQualityEnabler hq(p);
+			p.drawEllipse(inner);
+		}
+
+		const auto icon = [&] {
+			return &(selected ? st::historyFileThumbCancelSelected : st::historyFileThumbCancel);
+		}();
+		icon->paintInCenter(p, inner);
+		if (radial) {
+			p.setOpacity(1);
+			QRect rinner(inner.marginsRemoved(QMargins(st::msgFileRadialLine, st::msgFileRadialLine, st::msgFileRadialLine, st::msgFileRadialLine)));
+			_radial->draw(p, rinner, st::msgFileRadialLine, selected ? st::historyFileThumbRadialFgSelected : st::historyFileThumbRadialFg);
+		}
+	}
+	p.setOpacity(1);
+
+	const auto checkDelta = st::overviewCheckSkip + st::overviewCheck.size;
+	const auto checkLeft = _width - checkDelta;
+	const auto checkTop = _height - checkDelta;
+	paintCheckbox(p, { checkLeft, checkTop }, selected, context);
+}
+
+float64 GIF::dataProgress() const {
+	return _data->progress();
+}
+
+bool GIF::dataFinished() const {
+	return !_data->loading();
+}
+
+bool GIF::dataLoaded() const {
+	return _data->loaded();
+}
+
+bool GIF::iconAnimated() const {
+	return true;
+}
+
+TextState GIF::getState(
+	QPoint point,
+	StateRequest request) const {
+	if (hasPoint(point)) {
+		const auto link = (_data->loading() || _data->uploading())
+			? _cancell
+			: (_data->loaded() || _data->canBePlayed())
+			? _openl
+			: _savel;
+		return { parent(), link };
+	}
+	return {};
+}
+
+void GIF::updateStatusText() {
+	bool showPause = false;
+	int statusSize = 0;
+	if (_data->status == FileDownloadFailed || _data->status == FileUploadFailed) {
+		statusSize = FileStatusSizeFailed;
+	}
+	else if (_data->uploading()) {
+		statusSize = _data->uploadingData->offset;
+	}
+	else if (_data->loaded()) {
+		statusSize = FileStatusSizeLoaded;
+	}
+	else {
+		statusSize = FileStatusSizeReady;
+	}
+	if (statusSize != _status.size()) {
+		int status = statusSize, size = _data->size;
+		if (statusSize >= 0 && statusSize < 0x7F000000) {
+			size = status;
+			status = FileStatusSizeReady;
+		}
+		_status.update(status, size, -1, 0);
+		_status.setSize(statusSize);
+	}
+}
+
+
+
+
+
 Voice::Voice(
 	not_null<HistoryItem*> parent,
 	not_null<DocumentData*> voice,

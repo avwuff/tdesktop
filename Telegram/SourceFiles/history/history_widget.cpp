@@ -499,7 +499,11 @@ HistoryWidget::HistoryWidget(
 
 	session().data().animationPlayInlineRequest(
 	) | rpl::start_with_next([=](not_null<HistoryItem*> item) {
-		if (const auto view = item->mainView()) {
+		
+		const auto view = item->mainView();
+		if (view) {
+
+
 			if (const auto media = view->media()) {
 				media->playAnimation();
 			}

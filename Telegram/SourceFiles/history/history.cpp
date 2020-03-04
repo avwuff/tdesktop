@@ -2583,20 +2583,34 @@ bool History::trackUnreadMessages() const {
 }
 
 bool History::shouldBeInChatList() const {
+
+	/*
+	const auto isUnread = [](not_null<PeerData*> peer) {
+		if (const auto history = peer->owner().historyLoaded(peer)) {
+			return (history->chatListUnreadCount() > 0)
+				|| (history->chatListUnreadMark());
+		}
+		return false;
+	};
+	*/
+
 	if (peer->migrateTo() || !folderKnown()) {
 		return false;
 	} else if (isPinnedDialog()) {
 		return true;
-	} else if (const auto channel = peer->asChannel()) {
+	} 
+	else if (const auto channel = peer->asChannel()) {
 		if (!channel->amIn()) {
 			return isProxyPromoted();
 		//} else if (const auto feed = channel->feed()) { // #feed
 		//	return !feed->needUpdateInChatList();
 		}
-	} else if (const auto chat = peer->asChat()) {
+	} 
+	else if (const auto chat = peer->asChat()) 
+	{
 		return chat->amIn()
-			|| !lastMessageKnown()
-			|| (lastMessage() != nullptr);
+				|| !lastMessageKnown()
+				|| (lastMessage() != nullptr);
 	}
 	return !lastMessageKnown()
 		|| (lastMessage() != nullptr);

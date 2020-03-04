@@ -35,4 +35,4 @@ private:
 };
 
 QString telegramFaqLink();
-QString currentVersionText();
+QString currentVersionText(bool ForAboutWindow = false);

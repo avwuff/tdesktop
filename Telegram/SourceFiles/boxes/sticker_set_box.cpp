@@ -161,7 +161,8 @@ void StickerSetBox::prepare() {
 		updateButtons();
 	}, lifetime());
 
-	setDimensions(st::boxWideWidth, st::stickersMaxHeight);
+	// Av says, make sticker box twice the width!
+	setDimensions(st::boxWideWidth * 1.90, st::stickersMaxHeight * 1.5);
 
 	updateTitleAndButtons();
 
@@ -324,7 +325,7 @@ void StickerSetBox::Inner::gotSet(const MTPmessages_StickerSet &set) {
 		return;
 	} else {
 		int32 rows = _pack.size() / kStickersPanelPerRow + ((_pack.size() % kStickersPanelPerRow) ? 1 : 0);
-		resize(st::stickersPadding.left() + kStickersPanelPerRow * st::stickersSize.width(), st::stickersPadding.top() + rows * st::stickersSize.height() + st::stickersPadding.bottom());
+		resize(st::stickersPadding.left() + kStickersPanelPerRow * (st::stickersSize.width() * 2), st::stickersPadding.top() + rows * (st::stickersSize.height() * 2) + st::stickersPadding.bottom());
 	}
 	_loaded = true;
 
@@ -473,9 +474,9 @@ void StickerSetBox::Inner::startOverAnimation(int index, float64 from, float64 t
 	_elements[index].overAnimation.start([=] {
 		const auto row = index / kStickersPanelPerRow;
 		const auto column = index % kStickersPanelPerRow;
-		const auto left = st::stickersPadding.left() + column * st::stickersSize.width();
-		const auto top = st::stickersPadding.top() + row * st::stickersSize.height();
-		rtlupdate(left, top, st::stickersSize.width(), st::stickersSize.height());
+		const auto left = st::stickersPadding.left() + column * st::stickersSize.width() * 2;
+		const auto top = st::stickersPadding.top() + row * (st::stickersSize.height() * 2);
+		rtlupdate(left, top, (st::stickersSize.width() * 2), (st::stickersSize.height() * 2));
 	}, from, to, st::emojiPanDuration);
 }
 
@@ -507,8 +508,13 @@ not_null<Lottie::MultiPlayer*> StickerSetBox::Inner::getLottiePlayer() {
 int32 StickerSetBox::Inner::stickerFromGlobalPos(const QPoint &p) const {
 	QPoint l(mapFromGlobal(p));
 	if (rtl()) l.setX(width() - l.x());
-	int32 row = (l.y() >= st::stickersPadding.top()) ? qFloor((l.y() - st::stickersPadding.top()) / st::stickersSize.height()) : -1;
-	int32 col = (l.x() >= st::stickersPadding.left()) ? qFloor((l.x() - st::stickersPadding.left()) / st::stickersSize.width()) : -1;
+	int32 row = (l.y() >= st::stickersPadding.top()) ? qFloor((l.y() - st::stickersPadding.top()) / (st::stickersSize.height() * 2)) : -1;
+	int32 col = (l.x() >= st::stickersPadding.left()) ? qFloor((l.x() - st::stickersPadding.left()) / (st::stickersSize.width() * 2)) : -1;
+	
+	char buffer[100];
+	sprintf_s(buffer, "Over row: %i col %i\n", row, col);
+	OutputDebugStringA(buffer);
+	
 	if (row >= 0 && col >= 0 && col < kStickersPanelPerRow) {
 		int32 result = row * kStickersPanelPerRow + col;
 		return (result < _pack.size()) ? result : -1;
@@ -526,7 +532,7 @@ void StickerSetBox::Inner::paintEvent(QPaintEvent *e) {
 
 	int32 rows = (_elements.size() / kStickersPanelPerRow)
 		+ ((_elements.size() % kStickersPanelPerRow) ? 1 : 0);
-	int32 from = qFloor(e->rect().top() / st::stickersSize.height()), to = qFloor(e->rect().bottom() / st::stickersSize.height()) + 1;
+	int32 from = qFloor(e->rect().top() / (st::stickersSize.height() * 2)), to = qFloor(e->rect().bottom() / (st::stickersSize.height() * 2)) + 1;
 
 	for (int32 i = from; i < to; ++i) {
 		for (int32 j = 0; j < kStickersPanelPerRow; ++j) {
@@ -534,7 +540,7 @@ void StickerSetBox::Inner::paintEvent(QPaintEvent *e) {
 			if (index >= _elements.size()) {
 				break;
 			}
-			const auto pos = QPoint(st::stickersPadding.left() + j * st::stickersSize.width(), st::stickersPadding.top() + i * st::stickersSize.height());
+			const auto pos = QPoint(st::stickersPadding.left() + j * (st::stickersSize.width() * 2), st::stickersPadding.top() + i * (st::stickersSize.height() * 2));
 			paintSticker(p, index, pos);
 		}
 	}
@@ -550,8 +556,8 @@ void StickerSetBox::Inner::paintEvent(QPaintEvent *e) {
 
 QSize StickerSetBox::Inner::boundingBoxSize() const {
 	return QSize(
-		st::stickersSize.width() - st::buttonRadius * 2,
-		st::stickersSize.height() - st::buttonRadius * 2);
+		(st::stickersSize.width() * 2) - st::buttonRadius * 2,
+		(st::stickersSize.height() * 2) - st::buttonRadius * 2);
 }
 
 void StickerSetBox::Inner::visibleTopBottomUpdated(
@@ -576,7 +582,7 @@ void StickerSetBox::Inner::visibleTopBottomUpdated(
 	const auto rowsCount = (count / kStickersPanelPerRow)
 		+ ((count % kStickersPanelPerRow) ? 1 : 0);
 	const auto rowsTop = st::stickersPadding.top();
-	const auto singleHeight = st::stickersSize.height();
+	const auto singleHeight = st::stickersSize.height() * 2;
 	const auto rowsBottom = rowsTop + rowsCount * singleHeight;
 	if (visibleTop >= rowsTop + singleHeight && visibleTop < rowsBottom) {
 		const auto pauseHeight = (visibleTop - rowsTop);
@@ -613,8 +619,8 @@ void StickerSetBox::Inner::paintSticker(
 	if (const auto over = _elements[index].overAnimation.value((index == _selected) ? 1. : 0.)) {
 		p.setOpacity(over);
 		auto tl = position;
-		if (rtl()) tl.setX(width() - tl.x() - st::stickersSize.width());
-		App::roundRect(p, QRect(tl, st::stickersSize), st::emojiPanHover, StickerHoverCorners);
+		if (rtl()) tl.setX(width() - tl.x() - (st::stickersSize.width() * 2));
+		App::roundRect(p, QRect(tl, st::stickersSize * 2), st::emojiPanHover, StickerHoverCorners);
 		p.setOpacity(1);
 	}
 
@@ -636,12 +642,12 @@ void StickerSetBox::Inner::paintSticker(
 		w = std::max(size.width(), 1);
 		h = std::max(size.height(), 1);
 	} else {
-		auto coef = qMin((st::stickersSize.width() - st::buttonRadius * 2) / float64(document->dimensions.width()), (st::stickersSize.height() - st::buttonRadius * 2) / float64(document->dimensions.height()));
+		auto coef = qMin(((st::stickersSize.width() * 2) - st::buttonRadius * 2) / float64(document->dimensions.width()), ((st::stickersSize.height() * 2) - st::buttonRadius * 2) / float64(document->dimensions.height()));
 		if (coef > 1) coef = 1;
 		w = std::max(qRound(coef * document->dimensions.width()), 1);
 		h = std::max(qRound(coef * document->dimensions.height()), 1);
 	}
-	QPoint ppos = position + QPoint((st::stickersSize.width() - w) / 2, (st::stickersSize.height() - h) / 2);
+	QPoint ppos = position + QPoint(((st::stickersSize.width() * 2) - w) / 2, ((st::stickersSize.height() * 2) - h) / 2);
 	if (element.animated && element.animated->ready()) {
 		const auto frame = element.animated->frame();
 		p.drawImage(

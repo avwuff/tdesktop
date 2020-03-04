@@ -329,7 +329,18 @@ void DocumentOpenClickHandler::Open(
 			const auto msgId = context ? context->fullId() : FullMsgId();
 			Media::Player::instance()->playPause({ data, msgId });
 		} else if (context && data->isAnimation()) {
-			data->owner().requestAnimationPlayInline(context);
+
+			// IF we don't have a mainview, use the video player
+			if (!context->mainView())
+			{
+				//TEMPTEMP REPLACE ME
+				//const auto msgId = context ? context->fullId() : FullMsgId();
+				//BLARH Media::Player::instance()->playPause({ data, msgId });
+
+			}
+			else {
+				data->owner().requestAnimationPlayInline(context);
+			}
 		} else {
 			Core::App().showDocument(data, context);
 		}

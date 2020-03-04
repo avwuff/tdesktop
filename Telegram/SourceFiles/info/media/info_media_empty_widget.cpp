@@ -38,6 +38,7 @@ void EmptyWidget::setType(Type type) {
 		switch (_type) {
 		case Type::Photo: return &st::infoEmptyPhoto;
 		case Type::Video: return &st::infoEmptyVideo;
+		case Type::GIF: return &st::infoEmptyVideo;
 		case Type::MusicFile: return &st::infoEmptyAudio;
 		case Type::File: return &st::infoEmptyFile;
 		case Type::Link: return &st::infoEmptyLink;
@@ -54,6 +55,8 @@ void EmptyWidget::setSearchQuery(const QString &query) {
 		case Type::Photo:
 			return tr::lng_media_photo_empty(tr::now);
 		case Type::Video:
+			return tr::lng_media_video_empty(tr::now);
+		case Type::GIF:
 			return tr::lng_media_video_empty(tr::now);
 		case Type::MusicFile:
 			return query.isEmpty()

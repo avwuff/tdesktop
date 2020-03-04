@@ -35,6 +35,7 @@ std::optional<Storage::SharedMediaType> SharedMediaOverviewType(
 	switch (type) {
 	case Type::Photo:
 	case Type::Video:
+	case Type::GIF:
 	case Type::MusicFile:
 	case Type::File:
 	case Type::RoundVoiceFile:

@@ -35,6 +35,7 @@ inline tr::phrase<lngtag_count> MediaTextPhrase(Type type) {
 	case Type::MusicFile: return tr::lng_profile_songs;
 	case Type::Link: return tr::lng_profile_shared_links;
 	case Type::RoundVoiceFile: return tr::lng_profile_audios;
+	case Type::GIF: return tr::lng_profile_gifs;
 	}
 	Unexpected("Type in MediaTextPhrase()");
 };

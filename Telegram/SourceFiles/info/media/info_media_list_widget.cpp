@@ -207,6 +207,7 @@ void ListWidget::Section::setHeader(not_null<BaseLayout*> item) {
 		switch (_type) {
 		case Type::Photo:
 		case Type::Video:
+		case Type::GIF:
 		case Type::RoundFile:
 		case Type::RoundVoiceFile:
 		case Type::File:
@@ -234,6 +235,7 @@ bool ListWidget::Section::belongsHere(
 	case Type::Photo:
 	case Type::Video:
 	case Type::RoundFile:
+	case Type::GIF:
 	case Type::RoundVoiceFile:
 	case Type::File:
 		return date.year() == myDate.year()
@@ -452,6 +454,7 @@ void ListWidget::Section::resizeToWidth(int newWidth) {
 	switch (_type) {
 	case Type::Photo:
 	case Type::Video:
+	case Type::GIF:
 	case Type::RoundFile: {
 		_itemsLeft = st::infoMediaSkip;
 		_itemsTop = st::infoMediaSkip;
@@ -484,6 +487,7 @@ int ListWidget::Section::MinItemHeight(Type type, int width) {
 	switch (type) {
 	case Type::Photo:
 	case Type::Video:
+	case Type::GIF:
 	case Type::RoundFile: {
 		auto itemsLeft = st::infoMediaSkip;
 		auto itemsInRow = (width - itemsLeft)
@@ -509,6 +513,7 @@ int ListWidget::Section::recountHeight() const {
 	switch (_type) {
 	case Type::Photo:
 	case Type::Video:
+	case Type::GIF:
 	case Type::RoundFile: {
 		auto itemHeight = _itemWidth + st::infoMediaSkip;
 		auto index = 0;
@@ -877,6 +882,11 @@ std::unique_ptr<BaseLayout> ListWidget::createLayout(
 	case Type::Video:
 		if (const auto file = getFile()) {
 			return std::make_unique<Video>(item, file);
+		}
+		return nullptr;
+	case Type::GIF:
+		if (const auto file = getFile()) {
+			return std::make_unique<GIF>(item, file);
 		}
 		return nullptr;
 	case Type::File:
@@ -1252,7 +1262,7 @@ void ListWidget::showContextMenu(
 			if (fileLink) {
 				auto document = fileLink->document();
 				return std::make_tuple(
-					document->isVideoFile(),
+					document->isVideoFile() || document->isGifv(),
 					document->isVoiceMessage(),
 					document->isAudioFile()
 				);

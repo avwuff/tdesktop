@@ -1988,7 +1988,7 @@ void OverlayWidget::displayDocument(
 			}
 		} else {
 			if (_doc->canBePlayed() && initStreaming(continueStreaming)) {
-			} else if (_doc->isVideoFile()) {
+			} else if (_doc->isVideoFile() || _doc->isGifv()) {
 				_doc->automaticLoad(fileOrigin(), item);
 				initStreamingThumbnail();
 			} else if (_doc->isTheme()) {
@@ -3686,7 +3686,7 @@ void OverlayWidget::updateOver(QPoint pos) {
 	} else if (_closeNav.contains(pos)) {
 		updateOverState(OverClose);
 	} else if (documentContentShown() && contentRect().contains(pos)) {
-		if ((_doc->isVideoFile() || _doc->isVideoMessage()) && _streamed) {
+		if ((_doc->isVideoFile() || _doc->isGifv() || _doc->isVideoMessage()) && _streamed) {
 			updateOverState(OverVideo);
 		} else if (!_streamed && !_doc->loaded()) {
 			updateOverState(OverIcon);

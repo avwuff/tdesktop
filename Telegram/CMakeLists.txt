@@ -7,6 +7,8 @@
 add_executable(Telegram WIN32 MACOSX_BUNDLE)
 init_target(Telegram)
 
+set(Python_EXECUTABLE C:/TBuild/ThirdParty/Python27/python.exe) 
+
 add_subdirectory(lib_rpl)
 add_subdirectory(lib_crl)
 add_subdirectory(lib_base)

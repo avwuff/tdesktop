@@ -58,7 +58,7 @@ rpl::producer<TextWithEntities> Text3() {
 } // namespace
 
 AboutBox::AboutBox(QWidget *parent)
-: _version(this, tr::lng_about_version(tr::now, lt_version, currentVersionText()), st::aboutVersionLink)
+: _version(this, tr::lng_about_version(tr::now, lt_version, currentVersionText(true)), st::aboutVersionLink)
 , _text1(this, Text1(), st::aboutLabel)
 , _text2(this, Text2(), st::aboutLabel)
 , _text3(this, Text3(), st::aboutLabel) {
@@ -138,12 +138,15 @@ QString telegramFaqLink() {
 	return result;
 }
 
-QString currentVersionText() {
+QString currentVersionText(bool ForAboutWindow) {
 	auto result = QString::fromLatin1(AppVersionStr);
 	if (cAlphaVersion()) {
 		result += qsl(" alpha %1").arg(cAlphaVersion() % 1000);
 	} else if (AppBetaVersion) {
 		result += " beta";
 	}
+
+	if (ForAboutWindow) result += " - AvWuff Edition";
+
 	return result;
 }

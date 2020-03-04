@@ -251,6 +251,37 @@ private:
 
 };
 
+class GIF : public RadialProgressItem {
+public:
+	GIF(
+		not_null<HistoryItem*> parent,
+		not_null<DocumentData*> video);
+
+	void initDimensions() override;
+	int32 resizeGetHeight(int32 width) override;
+	void paint(Painter& p, const QRect& clip, TextSelection selection, const PaintContext* context) override;
+	TextState getState(
+		QPoint point,
+		StateRequest request) const override;
+
+protected:
+	float64 dataProgress() const override;
+	bool dataFinished() const override;
+	bool dataLoaded() const override;
+	bool iconAnimated() const override;
+
+private:
+	not_null<DocumentData*> _data;
+	StatusText _status;
+
+	QString _duration;
+	QPixmap _pix;
+	bool _pixBlurred = true;
+
+	void updateStatusText();
+
+};
+
 class Voice : public RadialProgressItem {
 public:
 	Voice(
