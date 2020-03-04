@@ -330,13 +330,15 @@ void DocumentOpenClickHandler::Open(
 			Media::Player::instance()->playPause({ data, msgId });
 		} else if (context && data->isAnimation()) {
 
+			// PROBLEM: This occurs when clicks come from the new 'Shared GIFs' panel I am adding.
+			// Without a mainView, they will not open.
+			// So, we need to figure out where to get a mainView from.
+
 			// IF we don't have a mainview, use the video player
 			if (!context->mainView())
 			{
-				//TEMPTEMP REPLACE ME
-				//const auto msgId = context ? context->fullId() : FullMsgId();
-				//BLARH Media::Player::instance()->playPause({ data, msgId });
-
+				// This works!
+				Core::App().showDocument(data, context);
 			}
 			else {
 				data->owner().requestAnimationPlayInline(context);

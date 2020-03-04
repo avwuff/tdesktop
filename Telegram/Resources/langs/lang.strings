@@ -861,6 +861,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_media_selected_photo#other" = "{count} Photos";
 "lng_media_selected_video#one" = "{count} Video";
 "lng_media_selected_video#other" = "{count} Videos";
+"lng_media_selected_gifs#one" = "{count} GIF";
+"lng_media_selected_gifs#other" = "{count} GIFs";
 "lng_media_selected_song#one" = "{count} Audio file";
 "lng_media_selected_song#other" = "{count} Audio files";
 "lng_media_selected_file#one" = "{count} File";

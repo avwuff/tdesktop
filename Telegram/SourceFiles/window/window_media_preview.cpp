@@ -198,7 +198,8 @@ QSize MediaPreviewWidget::currentDimensions() const {
 			result = QSize(_gif->width(), _gif->height());
 		}
 		if (_document->sticker()) {
-			box = QSize(st::maxStickerSize, st::maxStickerSize);
+			// I want stickers to render much larger so we can see all the pretty artwork!
+			box = QSize(3 * st::maxStickerSize, 3 * st::maxStickerSize);
 		} else {
 			box = QSize(2 * st::maxStickerSize, 2 * st::maxStickerSize);
 		}

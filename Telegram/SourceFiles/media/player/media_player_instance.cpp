@@ -384,8 +384,7 @@ void Instance::play(const AudioMsgId &audioId) {
 	}
 	if (document->isAudioFile()
 		|| document->isVoiceMessage()
-		|| document->isVideoMessage()
-		|| document->isGifv()) {
+		|| document->isVideoMessage()) {
 		auto shared = document->owner().streaming().sharedDocument(
 			document,
 			audioId.contextId());
