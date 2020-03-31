@@ -238,6 +238,7 @@ bool ListWidget::Section::belongsHere(
 	case Type::RoundFile:
 	case Type::GIF:
 	case Type::RoundVoiceFile:
+	case Type::Sticker:
 	case Type::File:
 		return date.year() == myDate.year()
 			&& date.month() == myDate.month();

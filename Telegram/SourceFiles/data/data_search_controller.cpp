@@ -47,6 +47,8 @@ std::optional<MTPmessages_Search> PrepareSearchRequest(
 			return MTP_inputMessagesFilterVoice();
 		case Type::RoundVoiceFile:
 			return MTP_inputMessagesFilterRoundVoice();
+		case Type::Sticker:
+			return MTP_inputMessagesFilterChatPhotos();
 		case Type::RoundFile:
 			return MTP_inputMessagesFilterRoundVideo();
 		case Type::GIF:

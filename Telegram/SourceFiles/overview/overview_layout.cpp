@@ -1852,15 +1852,18 @@ Sticker::Sticker(
 	: ItemBase(parent) {
 
 	AddComponents(Info::Bit());
+	
+	_data = media->document();
 
 	auto _sticker = media ? media->document()->sticker() : nullptr;
 	if (_sticker) {
-
 		OutputDebugStringW(L"Creating Sticker Link");
 
 		_link = std::make_shared<DocumentOpenClickHandler>(
 			media->document(),
 			parent->fullId());
+
+
 	}
 }
 
@@ -1874,7 +1877,52 @@ int32 Sticker::resizeGetHeight(int32 width) {
 }
 
 void Sticker::paint(Painter& p, const QRect& clip, TextSelection selection, const PaintContext* context) {
-	// TODO
+	
+	auto _sticker = _data->sticker();
+	auto _image = _sticker->image;
+
+	bool good = _data->loaded(), selected = (selection == FullSelection);
+	if (!good) {
+
+		_image->automaticLoad(parent()->fullId(), parent());
+		good = _image->loaded();
+	}
+	if ((good && !_goodLoaded) || _pix.width() != _width * cIntRetinaFactor()) {
+		_goodLoaded = good;
+		_pix = QPixmap();
+		if (_goodLoaded) {
+			setPixFrom(_image->loaded()
+				? _image->large()
+				: _image->thumbnail());
+		}
+		else if (_sticker->thumbnailSmall()->loaded()) {
+			setPixFrom(_image);
+		}
+		else if (const auto blurred = _sticker->thumbnailInline()) {
+			blurred->load({});
+			if (blurred->loaded()) {
+				setPixFrom(blurred);
+			}
+		}
+		else {
+			_sticker->loadThumbnailSmall(parent()->fullId());
+		}
+	}
+
+	if (_pix.isNull()) {
+		p.fillRect(0, 0, _width, _height, st::overviewPhotoBg);
+	}
+	else {
+		p.drawPixmap(0, 0, _pix);
+	}
+
+	if (selected) {
+		p.fillRect(0, 0, _width, _height, st::overviewPhotoSelectOverlay);
+	}
+	const auto checkDelta = st::overviewCheckSkip + st::overviewCheck.size;
+	const auto checkLeft = _width - checkDelta;
+	const auto checkTop = _height - checkDelta;
+	paintCheckbox(p, { checkLeft, checkTop }, selected, context);
 }
 
 TextState Sticker::getState(

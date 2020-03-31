@@ -426,6 +426,8 @@ protected:
 private:
 	void setPixFrom(not_null<Image*> image);
 
+	not_null<DocumentData*> _data;
+
 	ClickHandlerPtr _link;
 	QPixmap _pix;
 	bool _goodLoaded = false;
