@@ -1831,5 +1831,82 @@ Link::LinkEntry::LinkEntry(const QString &url, const QString &text)
 , lnk(std::make_shared<UrlClickHandler>(url)) {
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Sticker::Sticker(
+	not_null<HistoryItem*> parent,
+	Data::Media* media)
+	: ItemBase(parent) {
+
+	AddComponents(Info::Bit());
+
+	auto _sticker = media ? media->document()->sticker() : nullptr;
+	if (_sticker) {
+
+		OutputDebugStringW(L"Creating Sticker Link");
+
+		_link = std::make_shared<DocumentOpenClickHandler>(
+			media->document(),
+			parent->fullId());
+	}
+}
+
+void Sticker::initDimensions() {
+	_maxw = 2 * st::overviewPhotoMinSize;
+	_minh = _maxw;
+}
+
+int32 Sticker::resizeGetHeight(int32 width) {
+	return 20;
+}
+
+void Sticker::paint(Painter& p, const QRect& clip, TextSelection selection, const PaintContext* context) {
+	// TODO
+}
+
+TextState Sticker::getState(
+	QPoint point,
+	StateRequest request) const {
+	if (hasPoint(point)) {
+		return { parent(), _link };
+	}
+	return {};
+}
+
+const style::RoundCheckbox& Sticker::checkboxStyle() const {
+	return st::overviewSmallCheck;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 } // namespace Layout
 } // namespace Overview

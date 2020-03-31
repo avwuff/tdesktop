@@ -38,6 +38,7 @@ std::optional<Storage::SharedMediaType> SharedMediaOverviewType(
 	case Type::GIF:
 	case Type::MusicFile:
 	case Type::File:
+	case Type::Sticker:
 	case Type::RoundVoiceFile:
 	case Type::Link: return type;
 	}

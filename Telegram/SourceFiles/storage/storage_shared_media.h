@@ -26,6 +26,7 @@ enum class SharedMediaType : signed char {
 	RoundVoiceFile,
 	GIF,
 	RoundFile,
+	Sticker,
 
 	kCount,
 };

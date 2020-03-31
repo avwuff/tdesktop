@@ -491,6 +491,7 @@ Ui::StringWithNumbers TopBar::generateSelectedText() const {
 	const auto phrase = [&] {
 		switch (_selectedItems.type) {
 		case Type::Photo: return tr::lng_media_selected_photo;
+		case Type::Sticker: return tr::lng_media_selected_photo;
 		case Type::Video: return tr::lng_media_selected_video;
 		case Type::GIF: return tr::lng_media_selected_gifs;
 		case Type::File: return tr::lng_media_selected_file;
@@ -586,6 +587,8 @@ rpl::producer<QString> TitleValue(
 		}
 		switch (section.mediaType()) {
 		case Section::MediaType::Photo:
+			return tr::lng_media_type_photos();
+		case Section::MediaType::Sticker:
 			return tr::lng_media_type_photos();
 		case Section::MediaType::Video:
 			return tr::lng_media_type_videos();

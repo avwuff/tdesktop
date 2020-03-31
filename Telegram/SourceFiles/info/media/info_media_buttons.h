@@ -32,6 +32,7 @@ inline tr::phrase<lngtag_count> MediaTextPhrase(Type type) {
 	case Type::Photo: return tr::lng_profile_photos;
 	case Type::Video: return tr::lng_profile_videos;
 	case Type::File: return tr::lng_profile_files;
+	case Type::Sticker: return tr::lng_profile_files;
 	case Type::MusicFile: return tr::lng_profile_songs;
 	case Type::Link: return tr::lng_profile_shared_links;
 	case Type::RoundVoiceFile: return tr::lng_profile_audios;

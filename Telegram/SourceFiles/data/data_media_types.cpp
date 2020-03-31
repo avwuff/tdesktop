@@ -529,7 +529,7 @@ bool MediaFile::uploading() const {
 Storage::SharedMediaTypesMask MediaFile::sharedMediaTypes() const {
 	using Type = Storage::SharedMediaType;
 	if (_document->sticker()) {
-		return {};
+		return Type::Sticker;
 	} else if (_document->isVideoMessage()) {
 		return Storage::SharedMediaTypesMask{}
 			.added(Type::RoundFile)

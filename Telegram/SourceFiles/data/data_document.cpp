@@ -335,14 +335,18 @@ void DocumentOpenClickHandler::Open(
 			// So, we need to figure out where to get a mainView from.
 
 			// IF we don't have a mainview, use the video player
-			if (!context->mainView())
-			{
+			// Update Mar 30, 2020: It seems that sometimes even with a Mainview, the video doesn't play.  So we will try to always use showDocument.
+			// Hopefully that doesn't break anything!
+
+
+			//if (!context->mainView())
+			//{
 				// This works!
 				Core::App().showDocument(data, context);
-			}
-			else {
-				data->owner().requestAnimationPlayInline(context);
-			}
+			//}
+			//else {
+			//	data->owner().requestAnimationPlayInline(context);
+			//}
 		} else {
 			Core::App().showDocument(data, context);
 		}

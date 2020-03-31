@@ -407,5 +407,29 @@ private:
 
 };
 
+class Sticker : public ItemBase {
+public:
+	Sticker(
+		not_null<HistoryItem*> parent,
+		Data::Media* media);
+
+	void initDimensions() override;
+	int32 resizeGetHeight(int32 width) override;
+	void paint(Painter& p, const QRect& clip, TextSelection selection, const PaintContext* context) override;
+	TextState getState(
+		QPoint point,
+		StateRequest request) const override;
+
+protected:
+	const style::RoundCheckbox& checkboxStyle() const override;
+
+private:
+	void setPixFrom(not_null<Image*> image);
+
+	ClickHandlerPtr _link;
+	QPixmap _pix;
+	bool _goodLoaded = false;
+};
+
 } // namespace Layout
 } // namespace Overview

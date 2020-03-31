@@ -39,6 +39,7 @@ void EmptyWidget::setType(Type type) {
 		case Type::Photo: return &st::infoEmptyPhoto;
 		case Type::Video: return &st::infoEmptyVideo;
 		case Type::GIF: return &st::infoEmptyVideo;
+		case Type::Sticker: return &st::infoEmptyVideo;
 		case Type::MusicFile: return &st::infoEmptyAudio;
 		case Type::File: return &st::infoEmptyFile;
 		case Type::Link: return &st::infoEmptyLink;
@@ -72,6 +73,8 @@ void EmptyWidget::setSearchQuery(const QString &query) {
 				: tr::lng_media_link_empty_search(tr::now);
 		case Type::RoundVoiceFile:
 			return tr::lng_media_audio_empty(tr::now);
+		case Type::Sticker:
+			return tr::lng_media_video_empty(tr::now);
 		}
 		Unexpected("Bad type in EmptyWidget::setSearchQuery()");
 	}());
