@@ -1,4 +1,4 @@
-# [Telegram Desktop][telegram_desktop] – Official Messenger - AvWuff Edition
+# Telegram Desktop – Official Messenger - AvWuff Edition
 
 Differences in AvWuff Edition of Telegram Desktop:
 - Added 'GIFs' Shared Media option
