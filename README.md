@@ -1,5 +1,9 @@
 # Telegram Desktop – Official Messenger - AvWuff Edition
 
+NOTE: THIS PROJECT IS ABANDONED.
+Working with the tdesktop repository is an excersize in frustration and even just making maintainence releases takes hours and hours.  Not worth the hassle.  Feel free to implement my changes into your own release.
+
+
 Differences in AvWuff Edition of Telegram Desktop:
 - Added 'GIFs' Shared Media option
 - Sticker display window (when clicking a sticker in the chat) shows them much larger
