@@ -57,7 +57,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 namespace {
 
-constexpr auto kImageAreaLimit = 6'016 * 3'384;
+constexpr auto kImageAreaLimit = 12'032 * 9'024;
 
 App::LaunchState _launchState = App::Launched;
 
@@ -227,8 +227,6 @@ namespace App {
 		clearCorners();
 
 		Data::clearGlobalStructures();
-
-		Images::ClearAll();
 	}
 
 	void hoveredItem(HistoryView::Element *item) {
@@ -322,6 +320,9 @@ namespace App {
 	}
 
 	QImage readImage(QByteArray data, QByteArray *format, bool opaque, bool *animated) {
+		if (data.isEmpty()) {
+			return QImage();
+		}
 		QByteArray tmpFormat;
 		QImage result;
 		QBuffer buffer(&data);

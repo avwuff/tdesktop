@@ -17,6 +17,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/shortcuts.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/popup_menu.h"
+#include "ui/text/text_utilities.h"
 #include "ui/text_options.h"
 #include "ui/ui_utility.h"
 #include "data/data_drafts.h"
@@ -28,6 +29,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_peer_values.h"
 #include "data/data_histories.h"
 #include "data/data_chat_filters.h"
+#include "data/data_cloud_file.h"
 #include "base/unixtime.h"
 #include "lang/lang_keys.h"
 #include "mainwindow.h"
@@ -115,8 +117,6 @@ InnerWidget::InnerWidget(
 , _pinnedShiftAnimation([=](crl::time now) {
 	return pinnedShiftAnimationCallback(now);
 })
-, _addContactLnk(this, tr::lng_add_contact_button(tr::now))
-, _editFilterLnk(this, tr::lng_filters_context_edit(tr::now))
 , _cancelSearchInChat(this, st::dialogsCancelSearchInPeer)
 , _cancelSearchFromUser(this, st::dialogsCancelSearchInPeer) {
 
@@ -124,8 +124,6 @@ InnerWidget::InnerWidget(
 	setAttribute(Qt::WA_OpaquePaintEvent, true);
 #endif // OS_MAC_OLD
 
-	_addContactLnk->addClickHandler([] { App::wnd()->onShowAddContact(); });
-	_editFilterLnk->addClickHandler([=] { editOpenedFilter(); });
 	_cancelSearchInChat->setClickedCallback([=] { cancelSearchInChat(); });
 	_cancelSearchInChat->hide();
 	_cancelSearchFromUser->setClickedCallback([=] {
@@ -146,6 +144,7 @@ InnerWidget::InnerWidget(
 	session().data().contactsLoaded().changes(
 	) | rpl::start_with_next([=] {
 		refresh();
+		refreshEmptyLabel();
 	}, lifetime());
 
 	session().data().itemRemoved(
@@ -188,7 +187,9 @@ InnerWidget::InnerWidget(
 
 	setupOnlineStatusCheck();
 
-	session().data().chatsListChanges(
+	rpl::merge(
+		session().data().chatsListChanges(),
+		session().data().chatsListLoadedEvents()
 	) | rpl::filter([=](Data::Folder *folder) {
 		return (folder == _openedFolder);
 	}) | rpl::start_with_next([=] {
@@ -498,19 +499,6 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 		}
 		if (!otherStart) {
 			p.fillRect(dialogsClip, st::dialogsBg);
-			p.setFont(st::noContactsFont);
-			p.setPen(st::noContactsColor);
-			const auto phrase = _filterId
-				? (session().data().chatsList()->loaded()
-					? tr::lng_no_chats_filter(tr::now)
-					: tr::lng_contacts_loading(tr::now))
-				: session().data().contactsLoaded().current()
-				? tr::lng_no_chats(tr::now)
-				: tr::lng_contacts_loading(tr::now);
-			p.drawText(
-				QRect(0, 0, fullWidth, st::noContactsHeight - (session().data().contactsLoaded().current() ? st::noContactsFont->height : 0)),
-				phrase,
-				style::al_center);
 		}
 	} else if (_state == WidgetState::Filtered) {
 		if (!_hashtagResults.empty()) {
@@ -747,7 +735,7 @@ void InnerWidget::paintPeerSearchResult(
 
 	auto peer = result->peer;
 	auto userpicPeer = (peer->migrateTo() ? peer->migrateTo() : peer);
-	userpicPeer->paintUserpicLeft(p, st::dialogsPadding.x(), st::dialogsPadding.y(), width(), st::dialogsPhotoSize);
+	userpicPeer->paintUserpicLeft(p, result->row.userpicView(), st::dialogsPadding.x(), st::dialogsPadding.y(), width(), st::dialogsPhotoSize);
 
 	auto nameleft = st::dialogsPadding.x() + st::dialogsPhotoSize + st::dialogsPhotoPadding;
 	auto namewidth = fullWidth - nameleft - st::dialogsPadding.x();
@@ -823,7 +811,7 @@ void InnerWidget::paintSearchInChat(Painter &p) const {
 		if (peer->isSelf()) {
 			paintSearchInSaved(p, top, _searchInChatText);
 		} else {
-			paintSearchInPeer(p, peer, top, _searchInChatText);
+			paintSearchInPeer(p, peer, _searchInChatUserpic, top, _searchInChatText);
 		}
 	//} else if (const auto feed = _searchInChat.feed()) { // #feed
 	//	paintSearchInFeed(p, feed, top, fullWidth, _searchInChatText);
@@ -834,7 +822,7 @@ void InnerWidget::paintSearchInChat(Painter &p) const {
 		top += st::dialogsSearchInHeight + st::lineWidth;
 		p.setPen(st::dialogsTextFg);
 		p.setTextPalette(st::dialogsSearchFromPalette);
-		paintSearchInPeer(p, from, top, _searchFromUserText);
+		paintSearchInPeer(p, from, _searchFromUserUserpic, top, _searchFromUserText);
 		p.restoreTextPalette();
 	}
 }
@@ -879,10 +867,11 @@ void InnerWidget::paintSearchInFilter(
 void InnerWidget::paintSearchInPeer(
 		Painter &p,
 		not_null<PeerData*> peer,
+		std::shared_ptr<Data::CloudImageView> &userpic,
 		int top,
 		const Ui::Text::String &text) const {
 	const auto paintUserpic = [&](Painter &p, int x, int y, int size) {
-		peer->paintUserpicLeft(p, x, y, width(), size);
+		peer->paintUserpicLeft(p, userpic, x, y, width(), size);
 	};
 	const auto icon = Layout::ChatTypeIcon(peer, false, false);
 	paintSearchInFilter(p, paintUserpic, top, icon, text);
@@ -1410,8 +1399,7 @@ void InnerWidget::setSearchedPressed(int pressed) {
 }
 
 void InnerWidget::resizeEvent(QResizeEvent *e) {
-	_addContactLnk->move((width() - _addContactLnk->width()) / 2, (st::noContactsHeight + st::noContactsFont->height) / 2);
-	_editFilterLnk->move((width() - _editFilterLnk->width()) / 2, (st::noContactsHeight + st::noContactsFont->height) / 2);
+	resizeEmptyLabel();
 	const auto widthForCancelButton = qMax(width(), st::columnMinimalWidthLeft);
 	const auto left = widthForCancelButton - st::dialogsSearchInSkip - _cancelSearchInChat->width();
 	const auto top = (st::dialogsSearchInHeight - st::dialogsCancelSearchInPeer.height) / 2;
@@ -1561,6 +1549,17 @@ void InnerWidget::repaintDialogRow(
 
 void InnerWidget::repaintDialogRow(RowDescriptor row) {
 	updateDialogRow(row);
+}
+
+void InnerWidget::refreshDialogRow(RowDescriptor row) {
+	if (row.fullId) {
+		for (const auto &result : _searchResults) {
+			if (result->item()->fullId() == row.fullId) {
+				result->invalidateCache();
+			}
+		}
+	}
+	repaintDialogRow(row);
 }
 
 void InnerWidget::updateSearchResult(not_null<PeerData*> peer) {
@@ -2200,19 +2199,12 @@ void InnerWidget::refresh(bool toTop) {
 	if (needCollapsedRowsRefresh()) {
 		return refreshWithCollapsedRows(toTop);
 	}
+	refreshEmptyLabel();
 	const auto list = shownDialogs();
-	_addContactLnk->setVisible(!_filterId
-		&& (_state == WidgetState::Default)
-		&& list->empty()
-		&& session().data().contactsLoaded().current());
-	_editFilterLnk->setVisible((_filterId > 0)
-		&& (_state == WidgetState::Default)
-		&& list->empty()
-		&& session().data().chatsList()->loaded());
 	auto h = 0;
 	if (_state == WidgetState::Default) {
 		if (list->empty()) {
-			h = st::noContactsHeight;
+			h = st::dialogsEmptyHeight;
 		} else {
 			h = dialogsOffset() + list->size() * st::dialogsRowHeight;
 		}
@@ -2233,6 +2225,69 @@ void InnerWidget::refresh(bool toTop) {
 		_searchInChat || !_filter.isEmpty(),
 		true);
 	update();
+}
+
+void InnerWidget::refreshEmptyLabel() {
+	const auto data = &session().data();
+	const auto state = !shownDialogs()->empty()
+		? EmptyState::None
+		: (!_filterId && data->contactsLoaded().current())
+		? EmptyState::NoContacts
+		: (_filterId > 0) && data->chatsList()->loaded()
+		? EmptyState::EmptyFolder
+		: EmptyState::Loading;
+	if (state == EmptyState::None) {
+		_emptyState = state;
+		_empty.destroy();
+		return;
+	} else if (_emptyState == state) {
+		_empty->setVisible(_state == WidgetState::Default);
+		return;
+	}
+	_emptyState = state;
+	auto phrase = (state == EmptyState::NoContacts)
+		? tr::lng_no_chats()
+		: (state == EmptyState::EmptyFolder)
+		? tr::lng_no_chats_filter()
+		: tr::lng_contacts_loading();
+	auto link = (state == EmptyState::NoContacts)
+		? tr::lng_add_contact_button()
+		: (state == EmptyState::EmptyFolder)
+		? tr::lng_filters_context_edit()
+		: rpl::single(QString());
+	auto full = rpl::combine(
+		std::move(phrase),
+		std::move(link)
+	) | rpl::map([](const QString &phrase, const QString &link) {
+		auto result = Ui::Text::WithEntities(phrase);
+		if (!link.isEmpty()) {
+			result.append("\n\n").append(Ui::Text::Link(link));
+		}
+		return result;
+	});
+	_empty.create(this, std::move(full), st::dialogsEmptyLabel);
+	resizeEmptyLabel();
+	_empty->setClickHandlerFilter([=](const auto &...) {
+		if (_emptyState == EmptyState::NoContacts) {
+			App::wnd()->onShowAddContact();
+		} else if (_emptyState == EmptyState::EmptyFolder) {
+			editOpenedFilter();
+		}
+		return false;
+	});
+	_empty->setVisible(_state == WidgetState::Default);
+}
+
+void InnerWidget::resizeEmptyLabel() {
+	if (!_empty) {
+		return;
+	}
+	const auto useWidth = std::min(
+		_empty->naturalWidth(),
+		width() - 2 * st::dialogsEmptySkip);
+	const auto left = (width() - useWidth) / 2;
+	_empty->resizeToWidth(useWidth);
+	_empty->move(left, (st::dialogsEmptyHeight - _empty->height()) / 2);
 }
 
 void InnerWidget::clearMouseSelection(bool clearSelection) {
@@ -2281,9 +2336,18 @@ void InnerWidget::searchInChat(Key key, UserData *from) {
 	}
 	if (_searchFromUser) {
 		_cancelSearchFromUser->show();
+		_searchFromUserUserpic = _searchFromUser->createUserpicView();
 	} else {
 		_cancelSearchFromUser->hide();
+		_searchFromUserUserpic = nullptr;
 	}
+
+	if (const auto peer = _searchInChat.peer()) {
+		_searchInChatUserpic = peer->createUserpicView();
+	} else {
+		_searchInChatUserpic = nullptr;
+	}
+
 	_controller->dialogsListDisplayForced().set(
 		_searchInChat || !_filter.isEmpty(),
 		true);
@@ -2580,6 +2644,7 @@ void InnerWidget::switchToFilter(FilterId filterId) {
 		_filterId = filterId;
 		refreshWithCollapsedRows(true);
 	}
+	refreshEmptyLabel();
 }
 
 bool InnerWidget::chooseHashtag() {

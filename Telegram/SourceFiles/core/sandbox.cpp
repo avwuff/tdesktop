@@ -84,9 +84,9 @@ Sandbox::Sandbox(
 : QApplication(argc, argv)
 , _mainThreadId(QThread::currentThreadId())
 , _handleObservables([=] {
-	Expects(_application != nullptr);
-
-	_application->call_handleObservables();
+	if (_application) {
+		_application->call_handleObservables();
+	}
 })
 , _launcher(launcher) {
 }
@@ -373,11 +373,8 @@ void Sandbox::readClients() {
 						toSend.append(_escapeFrom7bit(cmds.mid(from + 5, to - from - 5)));
 					}
 				} else if (cmd.startsWith(qsl("OPEN:"))) {
-					auto activateRequired = true;
-					if (cStartUrl().isEmpty()) {
-						startUrl = _escapeFrom7bit(cmds.mid(from + 5, to - from - 5)).mid(0, 8192);
-						activateRequired = StartUrlRequiresActivate(startUrl);
-					}
+					startUrl = _escapeFrom7bit(cmds.mid(from + 5, to - from - 5)).mid(0, 8192);
+					auto activateRequired = StartUrlRequiresActivate(startUrl);
 					if (activateRequired) {
 						execExternal("show");
 					}

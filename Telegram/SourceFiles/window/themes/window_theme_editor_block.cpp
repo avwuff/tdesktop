@@ -238,6 +238,7 @@ void EditorBlock::removeRow(const QString &name, bool removeCopyReferences) {
 			row.setCopyOf(QString());
 		}
 	}
+	removeFromSearch(_data[index]);
 	_data.erase(_data.begin() + index);
 	_indices.erase(it);
 	for (auto i = index, count = static_cast<int>(_data.size()); i != count; ++i) {
@@ -444,7 +445,7 @@ void EditorBlock::enumerateRows(Callback callback) const {
 			}
 		}
 	} else {
-		for_const (auto &row, _data) {
+		for (const auto &row : _data) {
 			if (!callback(row)) {
 				break;
 			}

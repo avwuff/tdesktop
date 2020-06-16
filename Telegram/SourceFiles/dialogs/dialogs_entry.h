@@ -18,6 +18,7 @@ class Session;
 namespace Data {
 class Session;
 class Folder;
+class CloudImageView;
 } // namespace Data
 
 namespace Dialogs {
@@ -120,10 +121,7 @@ public:
 		return lookupPinnedIndex(filterId) != 0;
 	}
 	void cachePinnedIndex(FilterId filterId, int index);
-	bool isProxyPromoted() const {
-		return _isProxyPromoted;
-	}
-	void cacheProxyPromoted(bool promoted);
+	[[nodiscard]] bool isTopPromoted() const;
 	[[nodiscard]] uint64 sortKeyInChatList(FilterId filterId) const {
 		return filterId
 			? computeSortPosition(filterId)
@@ -137,7 +135,7 @@ public:
 
 	virtual int fixedOnTopIndex() const = 0;
 	static constexpr auto kArchiveFixOnTopIndex = 1;
-	static constexpr auto kProxyPromotionFixOnTopIndex = 2;
+	static constexpr auto kTopPromotionFixOnTopIndex = 2;
 
 	virtual bool shouldBeInChatList() const = 0;
 	virtual int chatListUnreadCount() const = 0;
@@ -161,16 +159,18 @@ public:
 	virtual void loadUserpic() = 0;
 	virtual void paintUserpic(
 		Painter &p,
+		std::shared_ptr<Data::CloudImageView> &view,
 		int x,
 		int y,
 		int size) const = 0;
 	void paintUserpicLeft(
 			Painter &p,
+			std::shared_ptr<Data::CloudImageView> &view,
 			int x,
 			int y,
 			int w,
 			int size) const {
-		paintUserpic(p, rtl() ? (w - x - size) : x, y, size);
+		paintUserpic(p, view, rtl() ? (w - x - size) : x, y, size);
 	}
 
 	TimeId chatListTimeId() const {
@@ -194,6 +194,8 @@ protected:
 
 	[[nodiscard]] int lookupPinnedIndex(FilterId filterId) const;
 
+	void cacheTopPromoted(bool promoted);
+
 private:
 	virtual void changedChatListPinHook();
 	void pinnedIndexChanged(int was, int now);
@@ -211,8 +213,8 @@ private:
 	uint64 _sortKeyInChatList = 0;
 	uint64 _sortKeyByDate = 0;
 	base::flat_map<FilterId, int> _pinnedIndex;
-	bool _isProxyPromoted = false;
 	TimeId _timeId = 0;
+	bool _isTopPromoted = false;
 
 };
 

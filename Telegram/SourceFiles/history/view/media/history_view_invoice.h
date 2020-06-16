@@ -70,6 +70,15 @@ public:
 		return _attach.get();
 	}
 
+	bool hasHeavyPart() const override {
+		return _attach ? _attach->hasHeavyPart() : false;
+	}
+	void unloadHeavyPart() override {
+		if (_attach) {
+			_attach->unloadHeavyPart();
+		}
+	}
+
 private:
 	QSize countOptimalSize() override;
 	QSize countCurrentSize(int newWidth) override;

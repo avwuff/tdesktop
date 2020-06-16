@@ -759,9 +759,9 @@ std::vector<not_null<const Value*>> FormController::submitGetErrors() {
 		_view->showToast(tr::lng_passport_success(tr::now));
 
 		base::call_delayed(
-			(st::toastFadeInDuration
+			(st::defaultToast.durationFadeIn
 				+ Ui::Toast::kDefaultDuration
-				+ st::toastFadeOutDuration),
+				+ st::defaultToast.durationFadeOut),
 			this,
 			[=] { cancel(); });
 	}).fail([=](const RPCError &error) {
@@ -1738,16 +1738,14 @@ void FormController::loadFile(File &file) {
 			false,
 			Data::kImageCacheTag));
 	const auto loader = j->second.get();
-	loader->connect(loader, &mtpFileLoader::progress, [=] {
-		if (loader->finished()) {
-			fileLoadDone(key, loader->bytes());
-		} else {
-			fileLoadProgress(key, loader->currentOffset());
-		}
-	});
-	loader->connect(loader, &mtpFileLoader::failed, [=] {
+	loader->updates(
+	) | rpl::start_with_next_error_done([=] {
+		fileLoadProgress(key, loader->currentOffset());
+	}, [=](bool started) {
 		fileLoadFail(key);
-	});
+	}, [=] {
+		fileLoadDone(key, loader->bytes());
+	}, loader->lifetime());
 	loader->start();
 }
 

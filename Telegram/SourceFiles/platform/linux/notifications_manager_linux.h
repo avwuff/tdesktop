@@ -19,9 +19,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 namespace Platform {
 namespace Notifications {
 
-inline void FlashBounce() {
-}
-
 #ifndef TDESKTOP_DISABLE_DBUS_INTEGRATION
 class NotificationData : public QObject {
 	Q_OBJECT
@@ -93,6 +90,7 @@ public:
 protected:
 	void doShowNativeNotification(
 		not_null<PeerData*> peer,
+		std::shared_ptr<Data::CloudImageView> &userpicView,
 		MsgId msgId,
 		const QString &title,
 		const QString &subtitle,
@@ -115,6 +113,7 @@ public:
 
 	void showNotification(
 		not_null<PeerData*> peer,
+		std::shared_ptr<Data::CloudImageView> &userpicView,
 		MsgId msgId,
 		const QString &title,
 		const QString &subtitle,

@@ -50,6 +50,7 @@ constexpr auto kPreloadedScreensCount = 4;
 constexpr auto kPreloadIfLessThanScreens = 2;
 constexpr auto kPreloadedScreensCountFull
 	= kPreloadedScreensCount + 1 + kPreloadedScreensCount;
+constexpr auto kClearUserpicsAfter = 50;
 
 } // namespace
 
@@ -583,6 +584,11 @@ void ListWidget::visibleTopBottomUpdated(
 	_visibleTop = visibleTop;
 	_visibleBottom = visibleBottom;
 
+	// Unload userpics.
+	if (_userpics.size() > kClearUserpicsAfter) {
+		_userpicsCache = std::move(_userpics);
+	}
+
 	if (initializing) {
 		checkUnreadBarCreation();
 	}
@@ -937,6 +943,7 @@ void ListWidget::selectItemAsGroup(not_null<HistoryItem*> item) {
 			item,
 			SelectAction::Select);
 		pushSelectedItems();
+		update();
 	}
 }
 
@@ -1100,13 +1107,15 @@ Context ListWidget::elementContext() {
 }
 
 std::unique_ptr<Element> ListWidget::elementCreate(
-		not_null<HistoryMessage*> message) {
-	return std::make_unique<Message>(this, message);
+		not_null<HistoryMessage*> message,
+		Element *replacing) {
+	return std::make_unique<Message>(this, message, replacing);
 }
 
 std::unique_ptr<Element> ListWidget::elementCreate(
-		not_null<HistoryService*> message) {
-	return std::make_unique<Service>(this, message);
+		not_null<HistoryService*> message,
+		Element *replacing) {
+	return std::make_unique<Service>(this, message, replacing);
 }
 
 bool ListWidget::elementUnderCursor(
@@ -1156,6 +1165,11 @@ void ListWidget::elementStartStickerLoop(not_null<const Element*> view) {
 void ListWidget::elementShowPollResults(
 	not_null<PollData*> poll,
 	FullMsgId context) {
+}
+
+void ListWidget::elementShowTooltip(
+	const TextWithEntities &text,
+	Fn<void()> hiddenCallback) {
 }
 
 void ListWidget::saveState(not_null<ListMemento*> memento) {
@@ -1299,6 +1313,10 @@ void ListWidget::paintEvent(QPaintEvent *e) {
 		return;
 	}
 
+	const auto guard = gsl::finally([&] {
+		_userpicsCache.clear();
+	});
+
 	Painter p(this);
 
 	auto ms = crl::now();
@@ -1340,6 +1358,7 @@ void ListWidget::paintEvent(QPaintEvent *e) {
 				if (const auto from = message->displayFrom()) {
 					from->paintUserpicLeft(
 						p,
+						_userpics[from],
 						st::historyPhotoLeft,
 						userpicTop,
 						view->width(),
@@ -2369,8 +2388,7 @@ std::unique_ptr<QMimeData> ListWidget::prepareDrag() {
 		result->setData(qsl("application/x-td-forward"), "1");
 		if (const auto media = pressedView->media()) {
 			if (const auto document = media->getDocument()) {
-				const auto filepath = document->filepath(
-					DocumentData::FilePathResolve::Checked);
+				const auto filepath = document->filepath(true);
 				if (!filepath.isEmpty()) {
 					QList<QUrl> urls;
 					urls.push_back(QUrl::fromLocalFile(filepath));

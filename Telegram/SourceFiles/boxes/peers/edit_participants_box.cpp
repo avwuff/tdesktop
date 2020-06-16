@@ -354,6 +354,16 @@ bool ParticipantsAdditionalData::canRestrictUser(
 	Unexpected("Peer in ParticipantsAdditionalData::canRestrictUser.");
 }
 
+bool ParticipantsAdditionalData::canRemoveUser(
+		not_null<UserData*> user) const {
+	if (canRestrictUser(user)) {
+		return true;
+	} else if (const auto chat = _peer->asChat()) {
+		return chat->invitedByMe.contains(user);
+	}
+	return false;
+}
+
 auto ParticipantsAdditionalData::adminRights(
 	not_null<UserData*> user) const
 -> std::optional<MTPChatAdminRights> {
@@ -1056,7 +1066,9 @@ void ParticipantsBoxController::prepare() {
 		switch (_role) {
 		case Role::Admins: return tr::lng_channel_admins();
 		case Role::Profile:
-		case Role::Members: return tr::lng_profile_participants_section();
+		case Role::Members: return (_peer->isChannel() && !_peer->isMegagroup()
+			? tr::lng_profile_subscribers_section()
+			: tr::lng_profile_participants_section());
 		case Role::Restricted: return tr::lng_exceptions_list_title();
 		case Role::Kicked: return tr::lng_removed_list_title();
 		}
@@ -1434,6 +1446,8 @@ base::unique_qptr<Ui::PopupMenu> ParticipantsBoxController::rowContextMenu(
 				tr::lng_context_restrict_user(tr::now),
 				crl::guard(this, [=] { showRestricted(user); }));
 		}
+	}
+	if (_additional.canRemoveUser(user)) {
 		if (!_additional.isKicked(user)) {
 			const auto isGroup = _peer->isChat() || _peer->isMegagroup();
 			result->addAction(
@@ -1786,6 +1800,12 @@ std::unique_ptr<PeerListRow> ParticipantsBoxController::createRow(
 				|| _additional.canEditAdmin(user))) {
 			row->setActionLink(tr::lng_profile_kick(tr::now));
 		}
+		if (_role == Role::Members && user->isBot()) {
+			auto seesAllMessages = (user->botInfo->readsAllHistory || _additional.adminRights(user).has_value());
+			row->setCustomStatus(seesAllMessages
+				? tr::lng_status_bot_reads_all(tr::now)
+				: tr::lng_status_bot_not_reads_all(tr::now));
+		}
 	}
 	return row;
 }
@@ -1798,7 +1818,7 @@ auto ParticipantsBoxController::computeType(
 		: _additional.adminRights(user).has_value()
 		? Rights::Admin
 		: Rights::Normal;
-	result.canRemove = _additional.canRestrictUser(user);
+	result.canRemove = _additional.canRemoveUser(user);
 	return result;
 }
 

@@ -11,6 +11,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 class History;
 
+namespace Data {
+class CloudImageView;
+} // namespace Data
+
 namespace Main {
 class Session;
 } // namespace Main
@@ -32,6 +36,7 @@ namespace Notifications {
 
 enum class ChangeType {
 	SoundEnabled,
+	FlashBounceEnabled,
 	IncludeMuted,
 	CountMessages,
 	DesktopEnabled,
@@ -218,6 +223,7 @@ protected:
 
 	virtual void doShowNativeNotification(
 		not_null<PeerData*> peer,
+		std::shared_ptr<Data::CloudImageView> &userpicView,
 		MsgId msgId,
 		const QString &title,
 		const QString &subtitle,

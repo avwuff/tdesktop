@@ -34,26 +34,47 @@ private:
 	static constexpr auto kForwardArgumentCount = 1;
 
 	int _count = 0;
-	char *_arguments[kForwardArgumentCount + 1] = { nullptr };
+	std::vector<QByteArray> _owned;
+	std::vector<char*> _arguments;
+
+	void pushArgument(const char *text);
 
 };
 
 FilteredCommandLineArguments::FilteredCommandLineArguments(
 	int argc,
-	char **argv)
-: _count(std::clamp(argc, 0, kForwardArgumentCount)) {
+	char **argv) {
 	// For now just pass only the first argument, the executable path.
-	for (auto i = 0; i != _count; ++i) {
-		_arguments[i] = argv[i];
+	for (auto i = 0; i != kForwardArgumentCount; ++i) {
+		pushArgument(argv[i]);
 	}
+
+#if defined Q_OS_WIN || defined Q_OS_MAC
+	if (cUseFreeType()) {
+		pushArgument("-platform");
+#ifdef Q_OS_WIN
+		pushArgument("windows:fontengine=freetype");
+#else // Q_OS_WIN
+		pushArgument("cocoa:fontengine=freetype");
+#endif // !Q_OS_WIN
+	}
+#endif // Q_OS_WIN || Q_OS_MAC
+
+	pushArgument(nullptr);
 }
 
 int &FilteredCommandLineArguments::count() {
+	_count = _arguments.size() - 1;
 	return _count;
 }
 
 char **FilteredCommandLineArguments::values() {
-	return _arguments;
+	return _arguments.data();
+}
+
+void FilteredCommandLineArguments::pushArgument(const char *text) {
+	_owned.emplace_back(text);
+	_arguments.push_back(_owned.back().data());
 }
 
 QString DebugModeSettingPath() {
@@ -77,8 +98,30 @@ void ComputeDebugMode() {
 }
 
 void ComputeTestMode() {
-	if (QFile(cWorkingDir() + qsl("tdata/withtestmode")).exists()) {
+	if (QFile::exists(cWorkingDir() + qsl("tdata/withtestmode"))) {
 		cSetTestMode(true);
+	}
+}
+
+void ComputeExternalUpdater() {
+	QFile file(qsl("/etc/tdesktop/externalupdater"));
+
+	if (file.exists() && file.open(QIODevice::ReadOnly)) {
+		QTextStream fileStream(&file);
+		while (!fileStream.atEnd()) {
+			const auto path = fileStream.readLine();
+
+			if (path == (cWorkingDir() + cExeName())) {
+				SetUpdaterDisabledAtStartup();
+				return;
+			}
+		}
+	}
+}
+
+void ComputeFreeType() {
+	if (QFile::exists(cWorkingDir() + qsl("tdata/withfreetype"))) {
+		cSetUseFreeType(true);
 	}
 }
 
@@ -97,7 +140,7 @@ void ComputeInstallBetaVersions() {
 	const auto installBetaSettingPath = InstallBetaVersionsSettingPath();
 	if (cAlphaVersion()) {
 		cSetInstallBetaVersion(false);
-	} else if (QFile(installBetaSettingPath).exists()) {
+	} else if (QFile::exists(installBetaSettingPath)) {
 		QFile f(installBetaSettingPath);
 		if (f.open(QIODevice::ReadOnly)) {
 			cSetInstallBetaVersion(f.read(1) != "0");
@@ -141,7 +184,7 @@ bool MoveLegacyAlphaFolder(const QString &folder, const QString &file) {
 	if (QDir(was).exists() && !QDir(now).exists()) {
 		const auto oldFile = was + "/tdata/" + file;
 		const auto newFile = was + "/tdata/alpha";
-		if (QFile(oldFile).exists() && !QFile(newFile).exists()) {
+		if (QFile::exists(oldFile) && !QFile::exists(newFile)) {
 			if (!QFile(oldFile).copy(newFile)) {
 				LOG(("FATAL: Could not copy '%1' to '%2'"
 					).arg(oldFile
@@ -256,6 +299,14 @@ void Launcher::init() {
 	QApplication::setAttribute(Qt::AA_DisableHighDpiScaling, true);
 #endif // OS_MAC_OLD
 
+	// fallback session management is useless for tdesktop since it doesn't have
+	// any "are you sure you want to close this window?" dialogs
+	// but it produces bugs like https://github.com/telegramdesktop/tdesktop/issues/5022
+	// and https://github.com/telegramdesktop/tdesktop/issues/7549
+	// and https://github.com/telegramdesktop/tdesktop/issues/948
+	// more info: https://doc.qt.io/qt-5/qguiapplication.html#isFallbackSessionManagementEnabled
+	QApplication::setFallbackSessionManagementEnabled(false);
+
 	initHook();
 }
 
@@ -301,6 +352,8 @@ void Launcher::workingFolderReady() {
 
 	ComputeTestMode();
 	ComputeDebugMode();
+	ComputeExternalUpdater();
+	ComputeFreeType();
 	ComputeInstallBetaVersions();
 	ComputeInstallationTag();
 }
@@ -382,6 +435,7 @@ void Launcher::processArguments() {
 	auto parseMap = std::map<QByteArray, KeyFormat> {
 		{ "-testmode"       , KeyFormat::NoValues },
 		{ "-debug"          , KeyFormat::NoValues },
+		{ "-freetype"       , KeyFormat::NoValues },
 		{ "-many"           , KeyFormat::NoValues },
 		{ "-key"            , KeyFormat::OneValue },
 		{ "-autostart"      , KeyFormat::NoValues },
@@ -423,6 +477,7 @@ void Launcher::processArguments() {
 		SetUpdaterDisabledAtStartup();
 	}
 	gTestMode = parseResult.contains("-testmode");
+	gUseFreeType = parseResult.contains("-freetype");
 	Logs::SetDebugEnabled(parseResult.contains("-debug"));
 	gManyInstance = parseResult.contains("-many");
 	gKeyFile = parseResult.value("-key", {}).join(QString()).toLower();

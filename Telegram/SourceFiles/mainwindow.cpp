@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "data/data_document.h"
 #include "data/data_session.h"
+#include "data/data_document_media.h"
 #include "dialogs/dialogs_layout.h"
 #include "history/history.h"
 #include "ui/widgets/popup_menu.h"
@@ -429,11 +430,14 @@ bool MainWindow::ui_isLayerShown() {
 	return _layer != nullptr;
 }
 
-void MainWindow::showMediaPreview(
+bool MainWindow::showMediaPreview(
 		Data::FileOrigin origin,
 		not_null<DocumentData*> document) {
-	if (!document || ((!document->isAnimation() || !document->loaded()) && !document->sticker())) {
-		return;
+	const auto media = document->activeMediaView();
+	const auto preview = Data::VideoPreviewState(media.get());
+	if (!document->sticker()
+		&& (!document->isAnimation() || !preview.loaded())) {
+		return false;
 	}
 	if (!_mediaPreview) {
 		_mediaPreview.create(bodyWidget(), sessionController());
@@ -443,14 +447,12 @@ void MainWindow::showMediaPreview(
 		fixOrder();
 	}
 	_mediaPreview->showPreview(origin, document);
+	return true;
 }
 
-void MainWindow::showMediaPreview(
+bool MainWindow::showMediaPreview(
 		Data::FileOrigin origin,
 		not_null<PhotoData*> photo) {
-	if (!photo) {
-		return;
-	}
 	if (!_mediaPreview) {
 		_mediaPreview.create(bodyWidget(), sessionController());
 		updateControlsGeometry();
@@ -459,6 +461,7 @@ void MainWindow::showMediaPreview(
 		fixOrder();
 	}
 	_mediaPreview->showPreview(origin, photo);
+	return true;
 }
 
 void MainWindow::hideMediaPreview() {
@@ -702,6 +705,7 @@ bool MainWindow::takeThirdSectionFromLayer() {
 }
 
 void MainWindow::fixOrder() {
+	if (_passcodeLock) _passcodeLock->raise();
 	if (_layer) _layer->raise();
 	if (_mediaPreview) _mediaPreview->raise();
 	if (_testingThemeWarning) _testingThemeWarning->raise();
@@ -756,13 +760,20 @@ void MainWindow::toggleDisplayNotifyFromTray() {
 		return;
 	}
 
-	bool soundNotifyChanged = false;
+	auto soundNotifyChanged = false;
+	auto flashBounceNotifyChanged = false;
 	Global::SetDesktopNotify(!Global::DesktopNotify());
 	if (Global::DesktopNotify()) {
 		if (Global::RestoreSoundNotifyFromTray() && !Global::SoundNotify()) {
 			Global::SetSoundNotify(true);
 			Global::SetRestoreSoundNotifyFromTray(false);
 			soundNotifyChanged = true;
+		}
+		if (Global::RestoreFlashBounceNotifyFromTray()
+			&& !Global::FlashBounceNotify()) {
+			Global::SetFlashBounceNotify(true);
+			Global::SetRestoreFlashBounceNotifyFromTray(false);
+			flashBounceNotifyChanged = true;
 		}
 	} else {
 		if (Global::SoundNotify()) {
@@ -772,13 +783,23 @@ void MainWindow::toggleDisplayNotifyFromTray() {
 		} else {
 			Global::SetRestoreSoundNotifyFromTray(false);
 		}
+		if (Global::FlashBounceNotify()) {
+			Global::SetFlashBounceNotify(false);
+			Global::SetRestoreFlashBounceNotifyFromTray(true);
+			flashBounceNotifyChanged = true;
+		} else {
+			Global::SetRestoreFlashBounceNotifyFromTray(false);
+		}
 	}
 	Local::writeUserSettings();
-	account().session().notifications().settingsChanged().notify(
-		Window::Notifications::ChangeType::DesktopEnabled);
+	using Change = Window::Notifications::ChangeType;
+	auto &changes = account().session().notifications().settingsChanged();
+	changes.notify(Change::DesktopEnabled);
 	if (soundNotifyChanged) {
-		account().session().notifications().settingsChanged().notify(
-			Window::Notifications::ChangeType::SoundEnabled);
+		changes.notify(Change::SoundEnabled);
+	}
+	if (flashBounceNotifyChanged) {
+		changes.notify(Change::FlashBounceEnabled);
 	}
 }
 

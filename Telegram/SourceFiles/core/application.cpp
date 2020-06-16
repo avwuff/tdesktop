@@ -22,6 +22,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/ui_integration.h"
 #include "chat_helpers/emoji_keywords.h"
 #include "storage/localstorage.h"
+#include "base/platform/base_platform_info.h"
 #include "platform/platform_specific.h"
 #include "mainwindow.h"
 #include "dialogs/dialogs_entry.h"
@@ -36,6 +37,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "observer_peer.h"
 #include "storage/storage_databases.h"
 #include "mainwidget.h"
+#include "core/file_utilities.h"
 #include "main/main_account.h"
 #include "media/view/media_view_overlay_widget.h"
 #include "mtproto/dc_options.h"
@@ -173,6 +175,10 @@ void Application::run() {
 		psNewVersion();
 	}
 
+	if (cAutoStart() && !Platform::AutostartSupported()) {
+		cSetAutoStart(false);
+	}
+
 	if (cLaunchMode() == LaunchModeAutoStart && !cAutoStart()) {
 		psAutoStart(false, true);
 		App::quit();
@@ -299,8 +305,8 @@ void Application::showDocument(not_null<DocumentData*> document, HistoryItem *it
 
 	if (cUseExternalVideoPlayer()
 		&& document->isVideoFile()
-		&& document->loaded()) {
-		QDesktopServices::openUrl(QUrl("file:///" + document->location(false).fname));
+		&& !document->filepath().isEmpty()) {
+		File::Launch(document->location(false).fname);
 	} else {
 		_mediaView->showDocument(document, item);
 		_mediaView->activateWindow();
@@ -513,6 +519,21 @@ void Application::switchTestMode() {
 			f.close();
 		}
 		cSetTestMode(true);
+	}
+	App::restart();
+}
+
+void Application::switchFreeType() {
+	if (cUseFreeType()) {
+		QFile(cWorkingDir() + qsl("tdata/withfreetype")).remove();
+		cSetUseFreeType(false);
+	} else {
+		QFile f(cWorkingDir() + qsl("tdata/withfreetype"));
+		if (f.open(QIODevice::WriteOnly)) {
+			f.write("1");
+			f.close();
+		}
+		cSetUseFreeType(true);
 	}
 	App::restart();
 }
@@ -750,6 +771,17 @@ void Application::notifyFileDialogShown(bool shown) {
 		_mediaView->notifyFileDialogShown(shown);
 	}
 }
+
+QWidget *Application::getModalParent() {
+#ifdef Q_OS_LINUX
+	return Platform::IsWayland()
+		? App::wnd()
+		: nullptr;
+#endif // Q_OS_LINUX
+
+	return nullptr;
+}
+
 
 void Application::checkMediaViewActivation() {
 	if (_mediaView && !_mediaView->isHidden()) {

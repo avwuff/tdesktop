@@ -22,7 +22,7 @@ class Session;
 namespace Ui {
 class IconButton;
 class PopupMenu;
-class LinkButton;
+class FlatLabel;
 } // namespace Ui
 
 namespace Window {
@@ -32,6 +32,10 @@ class SessionController;
 namespace Notify {
 struct PeerUpdate;
 } // namespace Notify
+
+namespace Data {
+class CloudImageView;
+} // namespace Data
 
 namespace Dialogs {
 
@@ -92,11 +96,14 @@ public:
 	void removeDialog(Key key);
 	void repaintDialogRow(FilterId filterId, not_null<Row*> row);
 	void repaintDialogRow(RowDescriptor row);
+	void refreshDialogRow(RowDescriptor row);
 
 	void dragLeft();
 
 	void clearFilter();
 	void refresh(bool toTop = false);
+	void refreshEmptyLabel();
+	void resizeEmptyLabel();
 
 	bool chooseRow();
 
@@ -166,6 +173,13 @@ private:
 		NextOrEnd,
 		PreviousOrOriginal,
 		NextOrOriginal,
+	};
+
+	enum class EmptyState : uchar {
+		None,
+		Loading,
+		NoContacts,
+		EmptyFolder,
 	};
 
 	Main::Session &session() const;
@@ -273,6 +287,7 @@ private:
 	void paintSearchInPeer(
 		Painter &p,
 		not_null<PeerData*> peer,
+		std::shared_ptr<Data::CloudImageView> &userpic,
 		int top,
 		const Ui::Text::String &text) const;
 	void paintSearchInSaved(
@@ -357,6 +372,7 @@ private:
 	int _filteredPressed = -1;
 
 	bool _waitingForSearch = false;
+	EmptyState _emptyState = EmptyState::None;
 
 	QString _peerSearchQuery;
 	std::vector<std::unique_ptr<PeerSearchResult>> _peerSearchResults;
@@ -376,14 +392,15 @@ private:
 
 	WidgetState _state = WidgetState::Default;
 
-	object_ptr<Ui::LinkButton> _addContactLnk;
-	object_ptr<Ui::LinkButton> _editFilterLnk;
+	object_ptr<Ui::FlatLabel> _empty = { nullptr };
 	object_ptr<Ui::IconButton> _cancelSearchInChat;
 	object_ptr<Ui::IconButton> _cancelSearchFromUser;
 
 	Key _searchInChat;
 	History *_searchInMigrated = nullptr;
 	UserData *_searchFromUser = nullptr;
+	mutable std::shared_ptr<Data::CloudImageView> _searchInChatUserpic;
+	mutable std::shared_ptr<Data::CloudImageView> _searchFromUserUserpic;
 	Ui::Text::String _searchInChatText;
 	Ui::Text::String _searchFromUserText;
 	RowDescriptor _menuRow;

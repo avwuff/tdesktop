@@ -22,21 +22,38 @@ class SinglePlayer;
 class FrameRenderer;
 } // namespace Lottie;
 
-namespace Main {
-class Session;
-} // namespace Main
+namespace Window {
+class SessionController;
+} // namespace Window
+
+namespace Data {
+class DocumentMedia;
+class CloudImageView;
+} // namespace Data
 
 namespace internal {
 
 struct StickerSuggestion {
 	not_null<DocumentData*> document;
+	std::shared_ptr<Data::DocumentMedia> documentMedia;
 	std::unique_ptr<Lottie::SinglePlayer> animated;
 };
 
-using MentionRows = QList<UserData*>;
-using HashtagRows = QList<QString>;
-using BotCommandRows = QList<QPair<UserData*, const BotCommand*>>;
+struct MentionRow {
+	not_null<UserData*> user;
+	std::shared_ptr<Data::CloudImageView> userpic;
+};
+
+struct BotCommandRow {
+	not_null<UserData*> user;
+	not_null<const BotCommand*> command;
+	std::shared_ptr<Data::CloudImageView> userpic;
+};
+
+using HashtagRows = std::vector<QString>;
+using BotCommandRows = std::vector<BotCommandRow>;
 using StickerRows = std::vector<StickerSuggestion>;
+using MentionRows = std::vector<MentionRow>;
 
 class FieldAutocompleteInner;
 
@@ -46,7 +63,9 @@ class FieldAutocomplete final : public Ui::RpWidget {
 	Q_OBJECT
 
 public:
-	FieldAutocomplete(QWidget *parent, not_null<Main::Session*> session);
+	FieldAutocomplete(
+		QWidget *parent,
+		not_null<Window::SessionController*> controller);
 	~FieldAutocomplete();
 
 	bool clearFilteredBotCommands();
@@ -87,7 +106,7 @@ public:
 	void hideFast();
 
 signals:
-	void mentionChosen(UserData *user, FieldAutocomplete::ChooseMethod method) const;
+	void mentionChosen(not_null<UserData*> user, FieldAutocomplete::ChooseMethod method) const;
 	void hashtagChosen(QString hashtag, FieldAutocomplete::ChooseMethod method) const;
 	void botCommandChosen(QString command, FieldAutocomplete::ChooseMethod method) const;
 	void stickerChosen(not_null<DocumentData*> sticker, FieldAutocomplete::ChooseMethod method) const;
@@ -109,7 +128,7 @@ private:
 	void recount(bool resetScroll = false);
 	internal::StickerRows getStickerSuggestions();
 
-	const not_null<Main::Session*> _session;
+	const not_null<Window::SessionController*> _controller;
 	QPixmap _cache;
 	internal::MentionRows _mrows;
 	internal::HashtagRows _hrows;
@@ -160,6 +179,7 @@ class FieldAutocompleteInner final
 
 public:
 	FieldAutocompleteInner(
+		not_null<Window::SessionController*> controller,
 		not_null<FieldAutocomplete*> parent,
 		not_null<MentionRows*> mrows,
 		not_null<HashtagRows*> hrows,
@@ -174,7 +194,7 @@ public:
 	void rowsUpdated();
 
 signals:
-	void mentionChosen(UserData *user, FieldAutocomplete::ChooseMethod method) const;
+	void mentionChosen(not_null<UserData*> user, FieldAutocomplete::ChooseMethod method) const;
 	void hashtagChosen(QString hashtag, FieldAutocomplete::ChooseMethod method) const;
 	void botCommandChosen(QString command, FieldAutocomplete::ChooseMethod method) const;
 	void stickerChosen(not_null<DocumentData*> sticker, FieldAutocomplete::ChooseMethod method) const;
@@ -204,11 +224,12 @@ private:
 	void repaintSticker(not_null<DocumentData*> document);
 	std::shared_ptr<Lottie::FrameRenderer> getLottieRenderer();
 
-	not_null<FieldAutocomplete*> _parent;
-	not_null<MentionRows*> _mrows;
-	not_null<HashtagRows*> _hrows;
-	not_null<BotCommandRows*> _brows;
-	not_null<StickerRows*> _srows;
+	const not_null<Window::SessionController*> _controller;
+	const not_null<FieldAutocomplete*> _parent;
+	const not_null<MentionRows*> _mrows;
+	const not_null<HashtagRows*> _hrows;
+	const not_null<BotCommandRows*> _brows;
+	const not_null<StickerRows*> _srows;
 	rpl::lifetime _stickersLifetime;
 	std::weak_ptr<Lottie::FrameRenderer> _lottieRenderer;
 	int _stickersPerRow = 1;

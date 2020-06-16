@@ -56,33 +56,6 @@ constexpr auto kAnimationCacheTag = uint8(0x05);
 
 struct FileOrigin;
 
-class ReplyPreview {
-public:
-	ReplyPreview();
-	ReplyPreview(ReplyPreview &&other);
-	ReplyPreview &operator=(ReplyPreview &&other);
-	~ReplyPreview();
-
-	void prepare(
-		not_null<Image*> image,
-		FileOrigin origin,
-		Images::Options options);
-	void clear();
-
-	[[nodiscard]] Image *image() const;
-	[[nodiscard]] bool good() const;
-	[[nodiscard]] bool empty() const;
-
-	[[nodiscard]] explicit operator bool() const {
-		return !empty();
-	}
-
-private:
-	struct Data;
-	std::unique_ptr<Data> _data;
-
-};
-
 } // namespace Data
 
 struct MessageGroupId {
@@ -483,7 +456,7 @@ public:
 		_context = context;
 	}
 
-	FullMsgId context() const {
+	[[nodiscard]] FullMsgId context() const {
 		return _context;
 	}
 

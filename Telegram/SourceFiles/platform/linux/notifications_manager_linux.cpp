@@ -1,3 +1,4 @@
+
 /*
 This file is part of Telegram Desktop,
 the official desktop application for the Telegram messaging service.
@@ -31,7 +32,50 @@ constexpr auto kObjectPath = "/org/freedesktop/Notifications"_cs;
 constexpr auto kInterface = kService;
 constexpr auto kPropertiesInterface = "org.freedesktop.DBus.Properties"_cs;
 
+bool NotificationsSupported = false;
 bool InhibitedNotSupported = false;
+
+void ComputeSupported(bool wait = false) {
+	const auto message = QDBusMessage::createMethodCall(
+		kService.utf16(),
+		kObjectPath.utf16(),
+		kInterface.utf16(),
+		qsl("GetServerInformation"));
+
+	auto async = QDBusConnection::sessionBus().asyncCall(message);
+	auto watcher = new QDBusPendingCallWatcher(async);
+
+	QObject::connect(
+		watcher,
+		&QDBusPendingCallWatcher::finished,
+		[=](QDBusPendingCallWatcher *call) {
+			QDBusPendingReply<QString, QString, QString, QString> reply = *call;
+
+			if (reply.isValid()) {
+				NotificationsSupported = true;
+			}
+
+			call->deleteLater();
+		});
+
+	if (wait) {
+		watcher->waitForFinished();
+	}
+}
+
+void GetSupported() {
+	static auto Checked = false;
+	if (Checked) {
+		return;
+	}
+	Checked = true;
+
+	if (Global::NativeNotifications()) {
+		ComputeSupported(true);
+	} else {
+		ComputeSupported();
+	}
+}
 
 std::vector<QString> ComputeServerInformation() {
 	std::vector<QString> serverInformation;
@@ -61,8 +105,8 @@ std::vector<QString> ComputeServerInformation() {
 }
 
 std::vector<QString> GetServerInformation() {
-	static const auto ServerInformation = ComputeServerInformation();
-	return ServerInformation;
+	static const auto Result = ComputeServerInformation();
+	return Result;
 }
 
 QStringList ComputeCapabilities() {
@@ -85,8 +129,8 @@ QStringList ComputeCapabilities() {
 }
 
 QStringList GetCapabilities() {
-	static const auto Capabilities = ComputeCapabilities();
-	return Capabilities;
+	static const auto Result = ComputeCapabilities();
+	return Result;
 }
 
 bool Inhibited() {
@@ -104,14 +148,14 @@ bool Inhibited() {
 	const QDBusReply<QVariant> reply = QDBusConnection::sessionBus().call(
 		message);
 
-	const auto notSupportedErrors = {
+	static const auto NotSupportedErrors = {
 		QDBusError::ServiceUnknown,
 		QDBusError::InvalidArgs,
 	};
 
 	if (reply.isValid()) {
 		return reply.value().toBool();
-	} else if (ranges::contains(notSupportedErrors, reply.error().type())) {
+	} else if (ranges::contains(NotSupportedErrors, reply.error().type())) {
 		InhibitedNotSupported = true;
 	} else {
 		if (reply.error().type() == QDBusError::AccessDenied) {
@@ -138,15 +182,11 @@ QVersionNumber ParseSpecificationVersion(
 
 QString GetImageKey(const QVersionNumber &specificationVersion) {
 	if (!specificationVersion.isNull()) {
-		const auto majorVersion = specificationVersion.majorVersion();
-		const auto minorVersion = specificationVersion.minorVersion();
-
-		if ((majorVersion == 1 && minorVersion >= 2) || majorVersion > 1) {
+		if (specificationVersion >= QVersionNumber(1, 2)) {
 			return qsl("image-data");
-		} else if (majorVersion == 1 && minorVersion == 1) {
+		} else if (specificationVersion == QVersionNumber(1, 1)) {
 			return qsl("image_data");
-		} else if ((majorVersion == 1 && minorVersion < 1)
-			|| majorVersion < 1) {
+		} else if (specificationVersion < QVersionNumber(1, 1)) {
 			return qsl("icon_data");
 		} else {
 			LOG(("Native notification error: unknown specification version"));
@@ -414,33 +454,31 @@ bool SkipAudio() {
 }
 
 bool SkipToast() {
-#ifndef TDESKTOP_DISABLE_DBUS_INTEGRATION
-	if (Supported()
-		&& GetCapabilities().contains(qsl("inhibitions"))
-		&& !InhibitedNotSupported) {
-		return Inhibited();
-	}
-#endif // !TDESKTOP_DISABLE_DBUS_INTEGRATION
+	return SkipAudio();
+}
 
-	return false;
+bool SkipFlashBounce() {
+	return SkipAudio();
 }
 
 bool Supported() {
 #ifndef TDESKTOP_DISABLE_DBUS_INTEGRATION
-	static const auto Available = !GetServerInformation().empty();
-	return Available;
-#else // !TDESKTOP_DISABLE_DBUS_INTEGRATION
+	return NotificationsSupported;
+#endif // !TDESKTOP_DISABLE_DBUS_INTEGRATION
+
 	return false;
-#endif // TDESKTOP_DISABLE_DBUS_INTEGRATION
 }
 
 std::unique_ptr<Window::Notifications::Manager> Create(
 		Window::Notifications::System *system) {
 #ifndef TDESKTOP_DISABLE_DBUS_INTEGRATION
+	GetSupported();
+
 	if (Global::NativeNotifications() && Supported()) {
 		return std::make_unique<Manager>(system);
 	}
 #endif // !TDESKTOP_DISABLE_DBUS_INTEGRATION
+
 	return nullptr;
 }
 
@@ -475,6 +513,7 @@ Manager::Private::Private(not_null<Manager*> manager, Type type)
 
 void Manager::Private::showNotification(
 		not_null<PeerData*> peer,
+		std::shared_ptr<Data::CloudImageView> &userpicView,
 		MsgId msgId,
 		const QString &title,
 		const QString &subtitle,
@@ -491,8 +530,8 @@ void Manager::Private::showNotification(
 		hideReplyButton);
 
 	if (!hideNameAndPhoto) {
-		const auto key = peer->userpicUniqueKey();
-		notification->setImage(_cachedUserpics.get(key, peer));
+		const auto key = peer->userpicUniqueKey(userpicView);
+		notification->setImage(_cachedUserpics.get(key, peer, userpicView));
 	}
 
 	auto i = _notifications.find(peer->id);
@@ -566,6 +605,7 @@ Manager::~Manager() = default;
 
 void Manager::doShowNativeNotification(
 		not_null<PeerData*> peer,
+		std::shared_ptr<Data::CloudImageView> &userpicView,
 		MsgId msgId,
 		const QString &title,
 		const QString &subtitle,
@@ -574,6 +614,7 @@ void Manager::doShowNativeNotification(
 		bool hideReplyButton) {
 	_private->showNotification(
 		peer,
+		userpicView,
 		msgId,
 		title,
 		subtitle,

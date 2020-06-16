@@ -362,17 +362,6 @@ struct Data {
 
 	HiddenPinnedMessagesMap HiddenPinnedMessages;
 
-	Stickers::Sets StickerSets;
-	Stickers::Order StickerSetsOrder;
-	crl::time LastStickersUpdate = 0;
-	crl::time LastRecentStickersUpdate = 0;
-	crl::time LastFavedStickersUpdate = 0;
-	Stickers::Order FeaturedStickerSetsOrder;
-	int FeaturedStickerSetsUnreadCount = 0;
-	base::Observable<void> FeaturedStickerSetsUnreadCountChanged;
-	crl::time LastFeaturedStickersUpdate = 0;
-	Stickers::Order ArchivedStickerSetsOrder;
-
 	bool AskDownloadPath = false;
 	QString DownloadPath;
 	QByteArray DownloadPathBookmark;
@@ -381,7 +370,9 @@ struct Data {
 	bool VoiceMsgPlaybackDoubled = false;
 	bool SoundNotify = true;
 	bool DesktopNotify = true;
+	bool FlashBounceNotify = true;
 	bool RestoreSoundNotifyFromTray = false;
+	bool RestoreFlashBounceNotifyFromTray = false;
 	DBINotifyView NotifyView = dbinvShowPreview;
 	bool NativeNotifications = false;
 	int NotificationsCount = 3;
@@ -489,17 +480,6 @@ DefineRefVar(Global, base::Observable<void>, PhoneCallsEnabledChanged);
 
 DefineVar(Global, HiddenPinnedMessagesMap, HiddenPinnedMessages);
 
-DefineVar(Global, Stickers::Sets, StickerSets);
-DefineVar(Global, Stickers::Order, StickerSetsOrder);
-DefineVar(Global, crl::time, LastStickersUpdate);
-DefineVar(Global, crl::time, LastRecentStickersUpdate);
-DefineVar(Global, crl::time, LastFavedStickersUpdate);
-DefineVar(Global, Stickers::Order, FeaturedStickerSetsOrder);
-DefineVar(Global, int, FeaturedStickerSetsUnreadCount);
-DefineRefVar(Global, base::Observable<void>, FeaturedStickerSetsUnreadCountChanged);
-DefineVar(Global, crl::time, LastFeaturedStickersUpdate);
-DefineVar(Global, Stickers::Order, ArchivedStickerSetsOrder);
-
 DefineVar(Global, bool, AskDownloadPath);
 DefineVar(Global, QString, DownloadPath);
 DefineVar(Global, QByteArray, DownloadPathBookmark);
@@ -508,7 +488,9 @@ DefineRefVar(Global, base::Observable<void>, DownloadPathChanged);
 DefineVar(Global, bool, VoiceMsgPlaybackDoubled);
 DefineVar(Global, bool, SoundNotify);
 DefineVar(Global, bool, DesktopNotify);
+DefineVar(Global, bool, FlashBounceNotify);
 DefineVar(Global, bool, RestoreSoundNotifyFromTray);
+DefineVar(Global, bool, RestoreFlashBounceNotifyFromTray);
 DefineVar(Global, DBINotifyView, NotifyView);
 DefineVar(Global, bool, NativeNotifications);
 DefineVar(Global, int, NotificationsCount);

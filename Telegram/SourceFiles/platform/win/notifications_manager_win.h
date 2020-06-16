@@ -12,6 +12,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 namespace Platform {
 namespace Notifications {
 
+#ifndef __MINGW32__
 class Manager : public Window::Notifications::NativeManager {
 public:
 	Manager(Window::Notifications::System *system);
@@ -25,6 +26,7 @@ public:
 protected:
 	void doShowNativeNotification(
 		not_null<PeerData*> peer,
+		std::shared_ptr<Data::CloudImageView> &userpicView,
 		MsgId msgId,
 		const QString &title,
 		const QString &subtitle,
@@ -41,6 +43,7 @@ private:
 	const std::unique_ptr<Private> _private;
 
 };
+#endif // !__MINGW32__
 
 } // namespace Notifications
 } // namespace Platform

@@ -19,30 +19,6 @@ namespace {
 std::map<int, const char*> BetaLogs() {
 	return {
 	{
-		1009010,
-		"\xE2\x80\xA2 Switch to the Picture-in-Picture mode "
-		"to watch your video in a small window.\n"
-
-		"\xE2\x80\xA2 Change video playback speed "
-		"in the playback controls '...' menu.\n"
-
-		"\xE2\x80\xA2 Rotate photos and videos in the media viewer "
-		"using the rotate button in the bottom right corner.\n"
-	},
-	{
-		1009015,
-		"\xE2\x80\xA2 Mark new messages as read "
-		"while scrolling down through them.\n"
-
-		"\xE2\x80\xA2 Bug fixes and other minor improvements."
-	},
-	{
-		1009017,
-		"\xE2\x80\xA2 Spell checker on Windows 7.\n"
-
-		"\xE2\x80\xA2 Bug fixes and other minor improvements."
-	},
-	{
 		1009020,
 		"\xE2\x80\xA2 Fix crash in shared links search.\n"
 
@@ -54,6 +30,22 @@ std::map<int, const char*> BetaLogs() {
 		1009022,
 		"\xE2\x80\xA2 Organize chats into Chat Folders "
 		"if you have too many chats.\n"
+	},
+	{
+		2000001,
+		"\xE2\x80\xA2 Switch between folders using Ctrl+1, ..., Ctrl+8.\n"
+
+		"\xE2\x80\xA2 Fix crash when a pinned in folder chat "
+		"was added to archive.\n"
+
+		"\xE2\x80\xA2 Fix font issues in Linux version."
+	},
+	{
+		2001008,
+		"\xE2\x80\xA2 Add support for full group message history export.\n"
+
+		"\xE2\x80\xA2 Allow export of a single chat message history "
+		"in JSON format."
 	}
 	};
 };

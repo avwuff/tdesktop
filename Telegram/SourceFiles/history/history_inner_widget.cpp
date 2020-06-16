@@ -8,7 +8,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "history/history_inner_widget.h"
 
 #include <rpl/merge.h>
-#include "styles/style_history.h"
 #include "core/file_utilities.h"
 #include "core/crash_reports.h"
 #include "history/history.h"
@@ -52,11 +51,14 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_document.h"
 #include "data/data_poll.h"
 #include "data/data_photo.h"
+#include "data/data_photo_media.h"
 #include "data/data_user.h"
 #include "data/data_file_origin.h"
 #include "data/data_histories.h"
 #include "facades.h"
 #include "app.h"
+#include "styles/style_history.h"
+#include "styles/style_window.h" // st::windowMinWidth
 
 #include <QtGui/QClipboard>
 #include <QtWidgets/QApplication>
@@ -65,7 +67,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 namespace {
 
 constexpr auto kScrollDateHideTimeout = 1000;
-constexpr auto kUnloadHeavyPartsPages = 1;
+constexpr auto kUnloadHeavyPartsPages = 2;
+constexpr auto kClearUserpicsAfter = 50;
 
 // Helper binary search for an item in a list that is not completely
 // above the given top of the visible area or below the given bottom of the visible area
@@ -132,16 +135,16 @@ void HistoryInner::BotAbout::clickHandlerPressedChanged(
 
 HistoryInner::HistoryInner(
 	not_null<HistoryWidget*> historyWidget,
+	not_null<Ui::ScrollArea*> scroll,
 	not_null<Window::SessionController*> controller,
-	Ui::ScrollArea *scroll,
 	not_null<History*> history)
 : RpWidget(nullptr)
+, _widget(historyWidget)
+, _scroll(scroll)
 , _controller(controller)
 , _peer(history->peer)
 , _history(history)
 , _migrated(history->migrateFrom())
-, _widget(historyWidget)
-, _scroll(scroll)
 , _scrollDateCheck([this] { scrollDateCheck(); })
 , _scrollDateHideTimer([this] { scrollDateHideByTimer(); }) {
 	Instance = this;
@@ -564,6 +567,10 @@ void HistoryInner::paintEvent(QPaintEvent *e) {
 		return;
 	}
 
+	const auto guard = gsl::finally([&] {
+		_userpicsCache.clear();
+	});
+
 	Painter p(this);
 	auto clip = e->rect();
 	auto ms = crl::now();
@@ -729,6 +736,7 @@ void HistoryInner::paintEvent(QPaintEvent *e) {
 					if (const auto from = message->displayFrom()) {
 						from->paintUserpicLeft(
 							p,
+							_userpics[from],
 							st::historyPhotoLeft,
 							userpicTop,
 							width(),
@@ -1247,8 +1255,7 @@ std::unique_ptr<QMimeData> HistoryInner::prepareDrag() {
 		result->setData(qsl("application/x-td-forward"), "1");
 		if (const auto media = view->media()) {
 			if (const auto document = media->getDocument()) {
-				const auto filepath = document->filepath(
-					DocumentData::FilePathResolve::Checked);
+				const auto filepath = document->filepath(true);
 				if (!filepath.isEmpty()) {
 					QList<QUrl> urls;
 					urls.push_back(QUrl::fromLocalFile(filepath));
@@ -1605,7 +1612,7 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
 				saveContextGif(itemId);
 			});
 		}
-		if (!document->filepath(DocumentData::FilePathResolve::Checked).isEmpty()) {
+		if (!document->filepath(true).isEmpty()) {
 			_menu->addAction(Platform::IsMac() ? tr::lng_context_show_in_finder(tr::now) : tr::lng_context_show_in_folder(tr::now), [=] {
 				showContextInFolder(document);
 			});
@@ -1853,8 +1860,12 @@ void HistoryInner::copySelectedText() {
 }
 
 void HistoryInner::savePhotoToFile(not_null<PhotoData*> photo) {
-	if (photo->isNull() || !photo->loaded()) return;
+	const auto media = photo->activeMediaView();
+	if (photo->isNull() || !media || !media->loaded()) {
+		return;
+	}
 
+	const auto image = media->image(Data::PhotoSize::Large)->original();
 	auto filter = qsl("JPEG Image (*.jpg);;") + FileDialog::AllFilesFilter();
 	FileDialog::GetWritePath(
 		this,
@@ -1865,15 +1876,19 @@ void HistoryInner::savePhotoToFile(not_null<PhotoData*> photo) {
 			qsl(".jpg")),
 		crl::guard(this, [=](const QString &result) {
 			if (!result.isEmpty()) {
-				photo->large()->original().save(result, "JPG");
+				image.save(result, "JPG");
 			}
 		}));
 }
 
 void HistoryInner::copyContextImage(not_null<PhotoData*> photo) {
-	if (photo->isNull() || !photo->loaded()) return;
+	const auto media = photo->activeMediaView();
+	if (photo->isNull() || !media || !media->loaded()) {
+		return;
+	}
 
-	QGuiApplication::clipboard()->setImage(photo->large()->original());
+	const auto image = media->image(Data::PhotoSize::Large)->original();
+	QGuiApplication::clipboard()->setImage(image);
 }
 
 void HistoryInner::showStickerPackInfo(not_null<DocumentData*> document) {
@@ -1885,8 +1900,7 @@ void HistoryInner::cancelContextDownload(not_null<DocumentData*> document) {
 }
 
 void HistoryInner::showContextInFolder(not_null<DocumentData*> document) {
-	const auto filepath = document->filepath(
-		DocumentData::FilePathResolve::Checked);
+	const auto filepath = document->filepath(true);
 	if (!filepath.isEmpty()) {
 		File::ShowInFolder(filepath);
 	}
@@ -2226,6 +2240,11 @@ void HistoryInner::visibleAreaUpdated(int top, int bottom) {
 		scrollDateHideByTimer();
 	}
 
+	// Unload userpics.
+	if (_userpics.size() > kClearUserpicsAfter) {
+		_userpicsCache = std::move(_userpics);
+	}
+
 	// Unload lottie animations.
 	const auto pages = kUnloadHeavyPartsPages;
 	const auto from = _visibleAreaTop - pages * visibleAreaHeight;
@@ -2348,7 +2367,7 @@ HistoryInner::~HistoryInner() {
 	for (const auto &item : _animatedStickersPlayed) {
 		if (const auto view = item->mainView()) {
 			if (const auto media = view->media()) {
-				media->clearStickerLoopPlayed();
+				media->stickerClearLoopPlayed();
 			}
 		}
 	}
@@ -2479,6 +2498,12 @@ void HistoryInner::elementShowPollResults(
 		not_null<PollData*> poll,
 		FullMsgId context) {
 	_controller->showPollResults(poll, context);
+}
+
+void HistoryInner::elementShowTooltip(
+		const TextWithEntities &text,
+		Fn<void()> hiddenCallback) {
+	_widget->showInfoTooltip(text, std::move(hiddenCallback));
 }
 
 auto HistoryInner::getSelectionState() const
@@ -3289,12 +3314,20 @@ not_null<HistoryView::ElementDelegate*> HistoryInner::ElementDelegate() {
 			return HistoryView::Context::History;
 		}
 		std::unique_ptr<HistoryView::Element> elementCreate(
-				not_null<HistoryMessage*> message) override {
-			return std::make_unique<HistoryView::Message>(this, message);
+				not_null<HistoryMessage*> message,
+				Element *replacing = nullptr) override {
+			return std::make_unique<HistoryView::Message>(
+				this,
+				message,
+				replacing);
 		}
 		std::unique_ptr<HistoryView::Element> elementCreate(
-				not_null<HistoryService*> message) override {
-			return std::make_unique<HistoryView::Service>(this, message);
+				not_null<HistoryService*> message,
+				Element *replacing = nullptr) override {
+			return std::make_unique<HistoryView::Service>(
+				this,
+				message,
+				replacing);
 		}
 		bool elementUnderCursor(
 				not_null<const HistoryView::Element*> view) override {
@@ -3346,6 +3379,13 @@ not_null<HistoryView::ElementDelegate*> HistoryInner::ElementDelegate() {
 				FullMsgId context) override {
 			if (Instance) {
 				Instance->elementShowPollResults(poll, context);
+			}
+		}
+		void elementShowTooltip(
+				const TextWithEntities &text,
+				Fn<void()> hiddenCallback) override {
+			if (Instance) {
+				Instance->elementShowTooltip(text, hiddenCallback);
 			}
 		}
 
